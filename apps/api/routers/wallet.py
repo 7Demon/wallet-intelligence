@@ -97,9 +97,15 @@ async def get_wallet_sync_status(
     job = res.scalar_one_or_none()
 
     if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No sync jobs found for this wallet.",
+        return SyncStatusResponse(
+            status="PENDING",
+            progress_percentage=0.0,
+            total_transactions=0,
+            parsed_transactions=0,
+            reconstructed_trades=0,
+            error_message=None,
+            started_at=None,
+            completed_at=None,
         )
 
     return SyncStatusResponse(

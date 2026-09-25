@@ -53,6 +53,11 @@ export default function WalletDashboardPage({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"trades" | "tokens">("trades");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadWalletData = async () => {
     try {
@@ -153,6 +158,22 @@ export default function WalletDashboardPage({
   const metrics = overview?.metrics;
   const classification = overview?.classification;
   const coverage = overview?.coverage;
+
+  if (!mounted) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-pulse">
+        <div className="h-10 w-32 bg-slate-900/60 rounded-lg" />
+        <div className="h-32 bg-slate-900/60 rounded-xl border border-slate-800" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="h-24 bg-slate-900/60 rounded-xl border border-slate-800" />
+          <div className="h-24 bg-slate-900/60 rounded-xl border border-slate-800" />
+          <div className="h-24 bg-slate-900/60 rounded-xl border border-slate-800" />
+          <div className="h-24 bg-slate-900/60 rounded-xl border border-slate-800" />
+        </div>
+        <div className="h-80 bg-slate-900/60 rounded-xl border border-slate-800" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">

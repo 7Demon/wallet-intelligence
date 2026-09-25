@@ -7,12 +7,16 @@ CREATE TABLE IF NOT EXISTS wallets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     address TEXT NOT NULL UNIQUE,
     chain TEXT NOT NULL DEFAULT 'solana',
+    label TEXT,
+    is_tracked BOOLEAN DEFAULT TRUE,
+    tags TEXT[] DEFAULT '{}',
     first_seen_at TIMESTAMP WITH TIME ZONE,
     last_seen_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_wallets_address ON wallets(address);
+CREATE INDEX IF NOT EXISTS idx_wallets_is_tracked ON wallets(is_tracked);
 
 -- 2. Tokens
 CREATE TABLE IF NOT EXISTS tokens (

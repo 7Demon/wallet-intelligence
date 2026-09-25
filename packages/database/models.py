@@ -15,7 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -27,6 +27,9 @@ class Wallet(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     address = Column(Text, nullable=False, unique=True, index=True)
     chain = Column(Text, nullable=False, default="solana")
+    label = Column(Text, nullable=True)
+    is_tracked = Column(Boolean, default=True, index=True)
+    tags = Column(ARRAY(Text), default=list)
     first_seen_at = Column(DateTime(timezone=True), nullable=True)
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -174,6 +177,7 @@ class WalletMetric(Base):
     performance_tier = Column(Text, nullable=True)
     trading_style = Column(Text, nullable=True)
     capital_tier = Column(Text, nullable=True)
+    avg_position_usd = Column(Numeric(20, 4), nullable=True)
     activity_level = Column(Text, nullable=True)
     classified_at = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -60,6 +60,11 @@ Tujuan utama produk ini adalah mengubah transaksi blockchain yang berisik (*nois
 - **Initial Funding Detection**: Mengidentifikasi transaksi pendanaan pertama, wallet pengirim, waktu, dan jumlah SOL awal.
 - **Dashboard UI (`/wallet/{address}`)**: Tampilan responsive memuat Overview, Performance Cards, Behavior Stats, Holding Time Histogram, Trade History Table dengan filter, Token Performance Table, Activity Timeline, Initial Funding Card, dan Data Coverage Indicator.
 - **Sync Status & Progress Tracking**: Status sinkronisasi real-time (`PENDING`, `SYNCING`, `PROCESSING`, `COMPLETED`, `FAILED`) dengan persentase progress.
+- **Multi-Wallet Tracker (GMGN / Axiom Style)**:
+  - **Bulk Import**: Mengimport banyak alamat wallet sekaligus via modal textarea dengan opsi auto-sync dan tag kustom.
+  - **Watchlist Dashboard (`/`)**: Tabel pemantauan seluruh wallet yang disimpan di database, dilengkapi sorting (PnL, Win Rate, Last Active), inline label editing, status sync, dan aksi hapus/untrack.
+  - **Aggregated Portfolio Overview**: Ringkasan metrik gabungan (Total Tracked Wallets, Combined Realized PnL, Combined Total PnL, Average Portfolio Win Rate, dan Top Performer).
+  - **Live Multi-Wallet Trade Feed**: Stream transaksi terkini secara kronologis dari seluruh wallet yang sedang dipantau.
 
 ### 4.2 Out of Scope (Tahap 1 / Backlog Fase Lanjutan)
 - Smart Money Composite Scoring (model tertimbang / machine learning).

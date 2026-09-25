@@ -1,148 +1,228 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Zap, TrendingUp, ShieldCheck, Activity, ArrowRight } from "lucide-react";
-
-const SAMPLE_WALLETS = [
-  {
-    address: "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
-    label: "Active DEX Trader",
-  },
-  {
-    address: "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1",
-    label: "Raydium Liquidity / Swapper",
-  },
-  {
-    address: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
-    label: "Pump.fun Contract / Deployer",
-  },
-];
+import {
+  Search,
+  Upload,
+  RefreshCw,
+  TrendingUp,
+  Activity,
+  Layers,
+  ArrowRight,
+  Radio,
+  AlertTriangle,
+} from "lucide-react";
+import { getTrackerOverview, TrackerOverview } from "@/lib/api";
+import { TrackerSummaryCards } from "@/components/TrackerSummaryCards";
+import { WatchlistTable } from "@/components/WatchlistTable";
+import { TrackerFeed } from "@/components/TrackerFeed";
+import { BulkImportModal } from "@/components/BulkImportModal";
 
 export default function HomePage() {
-  const [address, setAddress] = useState("");
-  const [error, setError] = useState("");
   const router = useRouter();
+  const [addressInput, setAddressInput] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const [overview, setOverview] = useState<TrackerOverview | null>(null);
+  const [backendOffline, setBackendOffline] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"watchlist" | "feed">("watchlist");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const loadOverview = async () => {
+    try {
+      const data = await getTrackerOverview();
+      setOverview(data);
+      setBackendOffline(false);
+    } catch (err) {
+      console.error("Failed to load tracker overview:", err);
+      setBackendOffline(true);
+    }
+  };
+
+  useEffect(() => {
+    if (mounted) {
+      loadOverview();
+    }
+  }, [refreshTrigger, mounted]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = address.trim();
+    const trimmed = addressInput.trim();
     if (!trimmed) {
-      setError("Please enter a Solana wallet address.");
+      setSearchError("Please enter a Solana wallet address.");
       return;
     }
-    // Simple Base58 check (32-44 characters)
     if (trimmed.length < 32 || trimmed.length > 44) {
-      setError("Invalid Solana address format (must be 32-44 base58 characters).");
+      setSearchError("Invalid Solana address format (must be 32-44 base58 characters).");
       return;
     }
-    setError("");
+    setSearchError("");
     router.push(`/wallet/${trimmed}`);
   };
 
-  return (
-    <div className="relative min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center px-4 py-16 overflow-hidden">
-      {/* Background Ambient Glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-cyan-600/15 to-purple-600/20 blur-[130px] rounded-full pointer-events-none -z-10" />
-
-      <div className="max-w-4xl w-full text-center space-y-8">
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-purple-500/30 text-xs font-mono text-purple-300 shadow-sm backdrop-blur-md">
-          <Zap className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Solana-First On-Chain Analytics Engine</span>
+  if (!mounted) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-pulse font-mono text-xs">
+        <div className="h-14 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center px-4 text-slate-500">
+          Loading Wallet Intelligence Tracker...
         </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="h-24 bg-slate-900/60 rounded-xl border border-slate-800" />
+          <div className="h-24 bg-slate-900/60 rounded-xl border border-slate-800" />
+          <div className="h-24 bg-slate-900/60 rounded-xl border border-slate-800" />
+          <div className="h-24 bg-slate-900/60 rounded-xl border border-slate-800" />
+        </div>
+        <div className="h-80 bg-slate-900/60 rounded-xl border border-slate-800" />
+      </div>
+    );
+  }
 
-        {/* Hero Title */}
-        <div className="space-y-4">
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white leading-tight">
-            Analyze Any Solana <br />
-            <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-500 bg-clip-text text-transparent">
-              Trader Wallet &amp; PnL
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Top Header & Actions Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold font-mono text-white tracking-tight flex items-center gap-2.5">
+            <Layers className="w-6 h-6 text-cyan-400" />
+            <span>Wallet Tracker</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+              GMGN / Axiom Style
             </span>
           </h1>
-          <p className="max-w-2xl mx-auto text-base sm:text-lg text-slate-400">
-            Reconstruct noisy raw blockchain transactions into clean trades, accurate positions,
-            weighted-average PnL, and automated trader profiles.
+          <p className="text-xs text-slate-400 font-mono mt-1">
+            Monitor multiple Solana trader wallets, track combined PnL, and stream real-time trade signals.
           </p>
         </div>
 
-        {/* Search Bar */}
-        <div className="max-w-2xl mx-auto w-full">
-          <form
-            onSubmit={handleSearch}
-            className="relative flex items-center glass-panel-glow p-2 rounded-xl transition-all focus-within:ring-2 focus-within:ring-purple-500/50"
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setRefreshTrigger((r) => r + 1)}
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition-colors"
+            title="Refresh tracker"
           >
-            <Search className="w-5 h-5 text-slate-400 ml-3 shrink-0" />
-            <input
-              id="wallet-search-input"
-              type="text"
-              value={address}
-              onChange={(e) => {
-                setAddress(e.target.value);
-                if (error) setError("");
-              }}
-              placeholder="Enter Solana wallet address (e.g., 7xKX...)"
-              className="w-full bg-transparent px-3 py-2 text-sm sm:text-base text-slate-100 placeholder-slate-500 focus:outline-none font-mono"
-            />
-            <button
-              id="analyze-submit-button"
-              type="submit"
-              className="shrink-0 px-5 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-medium text-sm transition-all flex items-center gap-1.5 shadow-md shadow-purple-500/25 active:scale-95"
-            >
-              <span>Analyze</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-          {error && <p className="mt-2 text-xs text-rose-400 text-left font-mono">{error}</p>}
-        </div>
+            <RefreshCw className="w-4 h-4" />
+          </button>
 
-        {/* Quick Presets */}
-        <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs">
-          <span className="text-slate-500 font-mono">Try sample:</span>
-          {SAMPLE_WALLETS.map((item) => (
-            <button
-              key={item.address}
-              onClick={() => router.push(`/wallet/${item.address}`)}
-              className="px-2.5 py-1 rounded-md bg-slate-900/60 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-cyan-400 font-mono transition-colors"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Feature Highlights Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-10 text-left">
-          <div className="glass-panel p-5 space-y-2 border border-slate-800/80 hover:border-slate-700/80 transition-all">
-            <div className="w-8 h-8 rounded-md bg-cyan-500/10 flex items-center justify-center text-cyan-400">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-sm text-slate-200">Accurate Trade Reconstruction</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Splits noisy multi-instruction transactions into true BUY and SELL swaps across Raydium, Orca, and Jupiter.
-            </p>
-          </div>
-
-          <div className="glass-panel p-5 space-y-2 border border-slate-800/80 hover:border-slate-700/80 transition-all">
-            <div className="w-8 h-8 rounded-md bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-              <Activity className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-sm text-slate-200">Weighted Average Cost & PnL</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Computes realized and unrealized profit/loss using WACB with precise multi-entry and partial exit accounting.
-            </p>
-          </div>
-
-          <div className="glass-panel p-5 space-y-2 border border-slate-800/80 hover:border-slate-700/80 transition-all">
-            <div className="w-8 h-8 rounded-md bg-purple-500/10 flex items-center justify-center text-purple-400">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-sm text-slate-200">Rule-Based Profiling</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Transparent, configurable rule tagging across Performance Tier, Trading Style, Capital Size, and Activity.
-            </p>
-          </div>
+          <button
+            onClick={() => setIsImportOpen(true)}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-xs font-mono font-medium text-white shadow-lg shadow-purple-500/20 transition-all flex items-center gap-2 active:scale-95"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>+ Import Wallets</span>
+          </button>
         </div>
       </div>
+
+      {/* Backend Offline Alert */}
+      {backendOffline && (
+        <div className="glass-panel p-4 border border-amber-500/30 bg-amber-500/10 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200">
+          <div className="flex items-start sm:items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-300">Backend API Offline (http://localhost:8000)</p>
+              <p className="text-xs text-amber-200/80 font-mono mt-0.5">
+                Pastikan backend FastAPI sudah dijalankan di terminal:{" "}
+                <code className="bg-slate-900/80 border border-slate-700/60 px-1.5 py-0.5 rounded text-amber-300">
+                  .venv\Scripts\python -m uvicorn apps.api.main:app --reload --port 8000
+                </code>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setRefreshTrigger((r) => r + 1)}
+            className="self-end sm:self-center px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-mono border border-amber-500/40 transition-colors shrink-0"
+          >
+            Retry Connection
+          </button>
+        </div>
+      )}
+
+      {/* Quick Search Bar */}
+      <div className="glass-panel p-3">
+        <form onSubmit={handleSearch} className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-slate-400 ml-2 shrink-0" />
+          <input
+            type="text"
+            placeholder="Direct search: Enter any Solana wallet address to view full profile..."
+            value={addressInput}
+            onChange={(e) => {
+              setAddressInput(e.target.value);
+              if (searchError) setSearchError("");
+            }}
+            className="w-full bg-transparent px-2 py-1 text-xs text-slate-200 placeholder-slate-500 font-mono focus:outline-none"
+          />
+          <button
+            type="submit"
+            className="px-4 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-medium flex items-center gap-1 transition-colors shrink-0"
+          >
+            <span>Inspect</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </form>
+        {searchError && (
+          <p className="text-[11px] text-rose-400 font-mono mt-1.5 ml-2">{searchError}</p>
+        )}
+      </div>
+
+      {/* Aggregated Overview Cards */}
+      <TrackerSummaryCards overview={overview} />
+
+      {/* Tabs: Watchlist Table vs Live Activity Feed */}
+      <div className="glass-panel p-6 space-y-4 border border-slate-800/80">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setActiveTab("watchlist")}
+              className={`font-mono text-sm font-bold pb-2 transition-colors relative flex items-center gap-2 ${
+                activeTab === "watchlist"
+                  ? "text-cyan-400 border-b-2 border-cyan-400 -mb-[13px]"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>Watchlist ({overview?.total_tracked_wallets || 0})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("feed")}
+              className={`font-mono text-sm font-bold pb-2 transition-colors relative flex items-center gap-2 ${
+                activeTab === "feed"
+                  ? "text-cyan-400 border-b-2 border-cyan-400 -mb-[13px]"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Radio className="w-4 h-4 text-purple-400" />
+              <span>Live Signals Feed</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "watchlist" ? (
+          <WatchlistTable
+            refreshTrigger={refreshTrigger}
+            onRefresh={() => setRefreshTrigger((r) => r + 1)}
+          />
+        ) : (
+          <TrackerFeed />
+        )}
+      </div>
+
+      {/* Bulk Import Modal */}
+      <BulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={() => {
+          setRefreshTrigger((r) => r + 1);
+        }}
+      />
     </div>
   );
 }
