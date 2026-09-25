@@ -1,0 +1,101 @@
+{
+  "performance_tier": {
+    "min_closed_trades": 5,
+    "tiers": [
+      {
+        "name": "HIGHLY_PROFITABLE",
+        "min_roi": 100.0,
+        "min_win_rate": 60.0
+      },
+      {
+        "name": "PROFITABLE",
+        "min_roi": 20.0,
+        "min_win_rate": 50.0
+      },
+      {
+        "name": "BREAK_EVEN",
+        "min_roi": -20.0,
+        "max_roi": 20.0
+      },
+      {
+        "name": "HIGHLY_UNPROFITABLE",
+        "max_roi": -50.0
+      },
+      {
+        "name": "UNPROFITABLE",
+        "max_roi": -20.0
+      }
+    ]
+  },
+  "trading_style": {
+    "tiers": [
+      {
+        "name": "SCALPER",
+        "max_median_hold_seconds": 300
+      },
+      {
+        "name": "SHORT_TERM_TRADER",
+        "min_median_hold_seconds": 300,
+        "max_median_hold_seconds": 7200
+      },
+      {
+        "name": "SWING_TRADER",
+        "min_median_hold_seconds": 7200,
+        "max_median_hold_seconds": 259200
+      },
+      {
+        "name": "HOLDER",
+        "min_median_hold_seconds": 259200
+      }
+    ]
+  },
+  "capital_tier": {
+    "tiers": [
+      {
+        "name": "MICRO",
+        "max_avg_position_usd": 100.0
+      },
+      {
+        "name": "SMALL",
+        "min_avg_position_usd": 100.0,
+        "max_avg_position_usd": 1000.0
+      },
+      {
+        "name": "MEDIUM",
+        "min_avg_position_usd": 1000.0,
+        "max_avg_position_usd": 10000.0
+      },
+      {
+        "name": "LARGE",
+        "min_avg_position_usd": 10000.0,
+        "max_avg_position_usd": 100000.0
+      },
+      {
+        "name": "VERY_LARGE",
+        "min_avg_position_usd": 100000.0
+      }
+    ]
+  },
+  "activity_level": {
+    "inactive_days_threshold": 30,
+    "tiers": [
+      {
+        "name": "INACTIVE",
+        "description": "No trades in last 30 days"
+      },
+      {
+        "name": "OCCASIONAL",
+        "max_trades_per_day": 1.0
+      },
+      {
+        "name": "ACTIVE",
+        "min_trades_per_day": 1.0,
+        "max_trades_per_day": 10.0
+      },
+      {
+        "name": "HIGH_FREQUENCY",
+        "min_trades_per_day": 10.0
+      }
+    ]
+  }
+}
