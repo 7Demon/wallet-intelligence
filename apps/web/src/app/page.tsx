@@ -28,6 +28,7 @@ export default function HomePage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"watchlist" | "feed">("watchlist");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [timeframe, setTimeframe] = useState<string>("all");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function HomePage() {
 
   const loadOverview = async () => {
     try {
-      const data = await getTrackerOverview();
+      const data = await getTrackerOverview(timeframe !== "all" ? timeframe : undefined);
       setOverview(data);
       setBackendOffline(false);
     } catch (err) {
@@ -49,7 +50,7 @@ export default function HomePage() {
     if (mounted) {
       loadOverview();
     }
-  }, [refreshTrigger, mounted]);
+  }, [refreshTrigger, mounted, timeframe]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,7 +173,11 @@ export default function HomePage() {
       </div>
 
       {/* Aggregated Overview Cards */}
-      <TrackerSummaryCards overview={overview} />
+      <TrackerSummaryCards
+        overview={overview}
+        timeframe={timeframe}
+        onTimeframeChange={setTimeframe}
+      />
 
       {/* Tabs: Watchlist Table vs Live Activity Feed */}
       <div className="glass-panel p-6 space-y-4 border border-slate-800/80">

@@ -24,6 +24,7 @@ import {
   getWalletFunding,
   triggerWalletSync,
   getSyncStatus,
+  refreshWalletPrices,
   WalletOverview,
   PerformanceResponse,
   InitialFundingResponse,
@@ -50,6 +51,8 @@ export default function WalletDashboardPage({
 
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [refreshingPrices, setRefreshingPrices] = useState(false);
+  const [timeframe, setTimeframe] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"trades" | "tokens">("trades");
@@ -69,7 +72,7 @@ export default function WalletDashboardPage({
         setOverview(ov);
 
         const [perf, fund] = await Promise.all([
-          getWalletPerformance(address).catch(() => null),
+          getWalletPerformance(address, timeframe !== "all" ? timeframe : undefined).catch(() => null),
           getWalletFunding(address).catch(() => null),
         ]);
         setPerformance(perf);
@@ -145,6 +148,18 @@ export default function WalletDashboardPage({
     }
   };
 
+  const handleRefreshPrices = async () => {
+    try {
+      setRefreshingPrices(true);
+      await refreshWalletPrices(address);
+      await loadWalletData();
+    } catch (err: any) {
+      alert("Failed to refresh live token prices");
+    } finally {
+      setRefreshingPrices(false);
+    }
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(address);
     setCopied(true);
@@ -153,7 +168,7 @@ export default function WalletDashboardPage({
 
   useEffect(() => {
     loadWalletData();
-  }, [address]);
+  }, [address, timeframe]);
 
   const metrics = overview?.metrics;
   const classification = overview?.classification;
@@ -187,14 +202,26 @@ export default function WalletDashboardPage({
           <span>Back to Search</span>
         </Link>
 
-        <button
-          onClick={handleManualSync}
-          disabled={syncing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-mono text-slate-300 hover:text-white transition-all disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin text-purple-400" : ""}`} />
-          <span>{syncing ? "Syncing..." : "Re-Sync On-Chain"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefreshPrices}
+            disabled={refreshingPrices || syncing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-mono text-emerald-400 hover:text-emerald-300 transition-all disabled:opacity-50"
+            title="Fetch real-time prices for open positions via DexScreener"
+          >
+            <Coins className={`w-3.5 h-3.5 ${refreshingPrices ? "animate-spin" : ""}`} />
+            <span>{refreshingPrices ? "Updating Prices..." : "Live Price Oracle"}</span>
+          </button>
+
+          <button
+            onClick={handleManualSync}
+            disabled={syncing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-mono text-slate-300 hover:text-white transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin text-purple-400" : ""}`} />
+            <span>{syncing ? "Syncing..." : "Re-Sync On-Chain"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Sync Status Banner */}
@@ -306,20 +333,49 @@ export default function WalletDashboardPage({
         )}
       </div>
 
+      {/* Performance Overview Header & Timeframe Switch */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold font-mono text-slate-200 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-cyan-400" />
+          <span>Performance Overview</span>
+        </h3>
+
+        {/* Timeframe Toggle: All Time | 30D | 7D */}
+        <div className="flex items-center gap-1 bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+          {[
+            { id: "all", label: "All-Time" },
+            { id: "30d", label: "30D" },
+            { id: "7d", label: "7D" },
+          ].map((tf) => (
+            <button
+              key={tf.id}
+              onClick={() => setTimeframe(tf.id)}
+              className={`px-2.5 py-0.5 rounded-md text-[11px] font-mono transition-all ${
+                timeframe === tf.id
+                  ? "bg-cyan-500 text-slate-950 font-bold shadow"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {tf.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Performance Overview Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Realized PnL */}
         <div className="glass-panel p-4 space-y-1">
           <span className="text-slate-500 text-[11px] font-mono uppercase tracking-wider block">
-            Realized PnL
+            Realized PnL {timeframe !== "all" && <span className="text-cyan-400 text-[10px]">({timeframe})</span>}
           </span>
           <div
             className={`text-lg sm:text-xl font-bold font-mono ${
-              (metrics?.realized_pnl || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+              (performance?.pnl_summary.realized_pnl ?? metrics?.realized_pnl ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"
             }`}
           >
-            {(metrics?.realized_pnl || 0) >= 0 ? "+" : ""}
-            {(metrics?.realized_pnl || 0).toFixed(2)} SOL
+            {(performance?.pnl_summary.realized_pnl ?? metrics?.realized_pnl ?? 0) >= 0 ? "+" : ""}
+            {(performance?.pnl_summary.realized_pnl ?? metrics?.realized_pnl ?? 0).toFixed(2)} SOL
           </div>
         </div>
 
@@ -329,35 +385,35 @@ export default function WalletDashboardPage({
             Unrealized PnL
           </span>
           <div className="text-lg sm:text-xl font-bold font-mono text-slate-300">
-            {(metrics?.unrealized_pnl || 0).toFixed(2)} SOL
+            {(performance?.pnl_summary.unrealized_pnl ?? metrics?.unrealized_pnl ?? 0).toFixed(2)} SOL
           </div>
         </div>
 
         {/* Total PnL */}
         <div className="glass-panel p-4 space-y-1">
           <span className="text-slate-500 text-[11px] font-mono uppercase tracking-wider block">
-            Total PnL
+            Total PnL {timeframe !== "all" && <span className="text-cyan-400 text-[10px]">({timeframe})</span>}
           </span>
           <div
             className={`text-lg sm:text-xl font-bold font-mono ${
-              (metrics?.total_pnl || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+              (performance?.pnl_summary.total_pnl ?? metrics?.total_pnl ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"
             }`}
           >
-            {(metrics?.total_pnl || 0) >= 0 ? "+" : ""}
-            {(metrics?.total_pnl || 0).toFixed(2)} SOL
+            {(performance?.pnl_summary.total_pnl ?? metrics?.total_pnl ?? 0) >= 0 ? "+" : ""}
+            {(performance?.pnl_summary.total_pnl ?? metrics?.total_pnl ?? 0).toFixed(2)} SOL
           </div>
         </div>
 
         {/* Win Rate */}
         <div className="glass-panel p-4 space-y-1">
           <span className="text-slate-500 text-[11px] font-mono uppercase tracking-wider block">
-            Win Rate
+            Win Rate {timeframe !== "all" && <span className="text-cyan-400 text-[10px]">({timeframe})</span>}
           </span>
           <div className="text-lg sm:text-xl font-bold font-mono text-white">
-            {metrics?.win_rate ? metrics.win_rate.toFixed(1) : "0.0"}%
+            {(performance?.pnl_summary.win_rate ?? metrics?.win_rate ?? 0).toFixed(1)}%
           </div>
           <span className="text-[10px] text-slate-500 font-mono block">
-            {metrics?.winning_trades || 0}W / {metrics?.losing_trades || 0}L
+            {timeframe === "all" ? `${metrics?.winning_trades || 0}W / ${metrics?.losing_trades || 0}L` : "Windowed"}
           </span>
         </div>
 
@@ -368,10 +424,10 @@ export default function WalletDashboardPage({
           </span>
           <div
             className={`text-lg sm:text-xl font-bold font-mono ${
-              (metrics?.roi || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+              (performance?.pnl_summary.roi ?? metrics?.roi ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"
             }`}
           >
-            {formatPercent(metrics?.roi)}
+            {formatPercent(performance?.pnl_summary.roi ?? metrics?.roi)}
           </div>
         </div>
 

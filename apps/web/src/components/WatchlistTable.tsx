@@ -15,6 +15,7 @@ import {
   RotateCw,
   Tag,
   Folder,
+  Download,
 } from "lucide-react";
 import {
   getTrackedWallets,
@@ -37,6 +38,7 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [timeframe, setTimeframe] = useState<string>("all");
   const [selectedTag, setSelectedTag] = useState<string>("");
   const [sortBy, setSortBy] = useState("pnl");
   const [order, setOrder] = useState("desc");
@@ -71,6 +73,7 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
         search: search.trim() || undefined,
         tier: tierFilter || undefined,
         category: categoryFilter || undefined,
+        timeframe: timeframe !== "all" ? timeframe : undefined,
         sort_by: sortBy,
         order,
         page: 1,
@@ -87,7 +90,7 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
 
   useEffect(() => {
     loadWallets();
-  }, [refreshTrigger, search, tierFilter, categoryFilter, sortBy, order]);
+  }, [refreshTrigger, search, tierFilter, categoryFilter, timeframe, sortBy, order]);
 
   const handleCopy = (address: string) => {
     navigator.clipboard.writeText(address);
@@ -127,40 +130,140 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
     }
   };
 
+  const [syncingAll, setSyncingAll] = useState(false);
+
+  const handleExportCSV = () => {
+    if (displayedWallets.length === 0) {
+      alert("Tidak ada data wallet untuk diekspor.");
+      return;
+    }
+    const headers = [
+      "Address",
+      "Label/Group",
+      "Performance Tier",
+      "Trading Style",
+      "Capital Tier",
+      "Realized PnL ($)",
+      "Win Rate (%)",
+      "Avg Entry ($)",
+      "Total Trades",
+      "Last Active",
+      "Sync Status",
+    ];
+    const rows = displayedWallets.map((w) => [
+      w.address,
+      w.label || "",
+      w.performance_tier || "",
+      w.trading_style || "",
+      w.capital_tier || "",
+      w.realized_pnl.toFixed(2),
+      w.win_rate.toFixed(1),
+      (w.avg_position_usd || 0).toFixed(2),
+      w.trade_count,
+      w.last_seen_at ? new Date(w.last_seen_at).toISOString() : "",
+      w.sync_status,
+    ]);
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        headers.join(","),
+        ...rows.map((r) =>
+          r.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(",")
+        ),
+      ].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `solana_wallets_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleSyncAll = async () => {
+    if (displayedWallets.length === 0) return;
+    if (
+      !confirm(
+        `Mulai sinkronisasi ulang untuk ${displayedWallets.length} wallet di watchlist?`
+      )
+    )
+      return;
+    try {
+      setSyncingAll(true);
+      await Promise.allSettled(
+        displayedWallets.map((w) => triggerWalletSync(w.address))
+      );
+      setTimeout(() => {
+        loadWallets();
+        onRefresh();
+        setSyncingAll(false);
+      }, 1500);
+    } catch (err) {
+      console.error("Batch sync error:", err);
+      setSyncingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* Group / Folder Quick Filter Pills (GMGN / Axiom Style) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 border-b border-slate-800/60">
-        <span className="text-[11px] font-mono text-slate-500 shrink-0 flex items-center gap-1 pr-1">
-          <Folder className="w-3.5 h-3.5 text-purple-400" /> Grup:
-        </span>
-        <button
-          onClick={() => setSelectedTag("")}
-          className={`px-3 py-1 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 shrink-0 ${
-            selectedTag === ""
-              ? "bg-purple-600 text-white font-bold shadow-md shadow-purple-600/30"
-              : "bg-slate-900/90 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700"
-          }`}
-        >
-          <span>Semua Wallet</span>
-          <span className="text-[10px] opacity-75 bg-black/30 px-1 rounded">({wallets.length})</span>
-        </button>
-
-        {availableTags.map(([tag, count]) => (
+      {/* Group / Folder Quick Filter Pills (GMGN / Axiom Style) & Timeframe Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800/60">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <span className="text-[11px] font-mono text-slate-500 shrink-0 flex items-center gap-1 pr-1">
+            <Folder className="w-3.5 h-3.5 text-purple-400" /> Grup:
+          </span>
           <button
-            key={tag}
-            onClick={() => setSelectedTag(tag === selectedTag ? "" : tag)}
+            onClick={() => setSelectedTag("")}
             className={`px-3 py-1 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 shrink-0 ${
-              selectedTag === tag
-                ? "bg-cyan-600 text-white font-bold shadow-md shadow-cyan-600/30"
+              selectedTag === ""
+                ? "bg-purple-600 text-white font-bold shadow-md shadow-purple-600/30"
                 : "bg-slate-900/90 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700"
             }`}
           >
-            <Tag className="w-3 h-3 text-cyan-400" />
-            <span>{tag}</span>
-            <span className="text-[10px] opacity-75 bg-black/30 px-1.5 py-0.5 rounded">({count})</span>
+            <span>Semua Wallet</span>
+            <span className="text-[10px] opacity-75 bg-black/30 px-1 rounded">({wallets.length})</span>
           </button>
-        ))}
+
+          {availableTags.map(([tag, count]) => (
+            <button
+              key={tag}
+              onClick={() => setSelectedTag(tag === selectedTag ? "" : tag)}
+              className={`px-3 py-1 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 shrink-0 ${
+                selectedTag === tag
+                  ? "bg-cyan-600 text-white font-bold shadow-md shadow-cyan-600/30"
+                  : "bg-slate-900/90 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700"
+              }`}
+            >
+              <Tag className="w-3 h-3 text-cyan-400" />
+              <span>{tag}</span>
+              <span className="text-[10px] opacity-75 bg-black/30 px-1.5 py-0.5 rounded">({count})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Timeframe Toggle: All Time | 30D | 7D */}
+        <div className="flex items-center gap-1 shrink-0 self-start sm:self-auto bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+          {[
+            { id: "all", label: "All-Time" },
+            { id: "30d", label: "30D" },
+            { id: "7d", label: "7D" },
+          ].map((tf) => (
+            <button
+              key={tf.id}
+              onClick={() => setTimeframe(tf.id)}
+              className={`px-2.5 py-0.5 rounded-md text-[11px] font-mono transition-all ${
+                timeframe === tf.id
+                  ? "bg-cyan-500 text-slate-950 font-bold shadow"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {tf.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Filtering & Sorting Controls */}
@@ -229,6 +332,33 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
           </button>
+
+          <div className="h-4 w-[1px] bg-slate-800 mx-1 hidden sm:block" />
+
+          {/* Batch Actions: Sync All & Export CSV */}
+          <button
+            onClick={handleSyncAll}
+            disabled={syncingAll || displayedWallets.length === 0}
+            className="px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            title="Sinkronisasi semua wallet di tampilan ini"
+          >
+            <RotateCw
+              className={`w-3.5 h-3.5 text-cyan-400 ${
+                syncingAll ? "animate-spin" : ""
+              }`}
+            />
+            <span className="hidden sm:inline">Sync All</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            disabled={displayedWallets.length === 0}
+            className="px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            title="Download CSV file"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
         </div>
       </div>
 
@@ -239,8 +369,12 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
             <tr>
               <th className="py-3 px-4">Label / Address</th>
               <th className="py-3 px-4">Klasifikasi &amp; Tipe Posisi</th>
-              <th className="py-3 px-4 text-right">Realized PnL</th>
-              <th className="py-3 px-4 text-right">Win Rate</th>
+              <th className="py-3 px-4 text-right">
+                Realized PnL {timeframe !== "all" && <span className="text-[10px] text-cyan-400 font-bold uppercase">({timeframe})</span>}
+              </th>
+              <th className="py-3 px-4 text-right">
+                Win Rate {timeframe !== "all" && <span className="text-[10px] text-cyan-400 font-bold uppercase">({timeframe})</span>}
+              </th>
               <th className="py-3 px-4 text-center">Trades</th>
               <th className="py-3 px-4 text-right">Last Active</th>
               <th className="py-3 px-4 text-center">Sync</th>

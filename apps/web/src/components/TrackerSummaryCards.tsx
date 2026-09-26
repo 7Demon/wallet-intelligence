@@ -5,46 +5,80 @@ import Link from "next/link";
 
 interface Props {
   overview: TrackerOverview | null;
+  timeframe?: string;
+  onTimeframeChange?: (tf: string) => void;
 }
 
-export function TrackerSummaryCards({ overview }: Props) {
+export function TrackerSummaryCards({
+  overview,
+  timeframe = "all",
+  onTimeframeChange,
+}: Props) {
   if (!overview) return null;
 
   const isRealizedProfit = overview.combined_realized_pnl >= 0;
   const isTotalProfit = overview.combined_total_pnl >= 0;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      {/* 1. Total Tracked Wallets */}
-      <div className="glass-panel p-4 space-y-1">
-        <div className="flex items-center justify-between text-slate-500 text-[11px] font-mono uppercase tracking-wider">
-          <span>Tracked Wallets</span>
-          <Users className="w-3.5 h-3.5 text-cyan-400" />
+    <div className="space-y-2">
+      {onTimeframeChange && (
+        <div className="flex items-center justify-between text-xs font-mono">
+          <span className="text-slate-400 font-medium">Portfolio Overview</span>
+          <div className="flex items-center gap-1 bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+            {[
+              { id: "all", label: "All-Time" },
+              { id: "30d", label: "30D" },
+              { id: "7d", label: "7D" },
+            ].map((tf) => (
+              <button
+                key={tf.id}
+                onClick={() => onTimeframeChange(tf.id)}
+                className={`px-2.5 py-0.5 rounded-md text-[11px] font-mono transition-all ${
+                  timeframe === tf.id
+                    ? "bg-purple-600 text-white font-bold shadow"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="text-xl sm:text-2xl font-bold font-mono text-white">
-          {overview.total_tracked_wallets}
-        </div>
-        <span className="text-[10px] text-emerald-400 font-mono block">
-          {overview.active_today_count} active in 24h
-        </span>
-      </div>
+      )}
 
-      {/* 2. Combined Realized PnL */}
-      <div className="glass-panel p-4 space-y-1">
-        <div className="flex items-center justify-between text-slate-500 text-[11px] font-mono uppercase tracking-wider">
-          <span>Combined Realized</span>
-          <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* 1. Total Tracked Wallets */}
+        <div className="glass-panel p-4 space-y-1">
+          <div className="flex items-center justify-between text-slate-500 text-[11px] font-mono uppercase tracking-wider">
+            <span>Tracked Wallets</span>
+            <Users className="w-3.5 h-3.5 text-cyan-400" />
+          </div>
+          <div className="text-xl sm:text-2xl font-bold font-mono text-white">
+            {overview.total_tracked_wallets}
+          </div>
+          <span className="text-[10px] text-emerald-400 font-mono block">
+            {overview.active_today_count} active in 24h
+          </span>
         </div>
-        <div
-          className={`text-xl sm:text-2xl font-bold font-mono ${
-            isRealizedProfit ? "text-emerald-400" : "text-rose-400"
-          }`}
-        >
-          {isRealizedProfit ? "+" : ""}
-          {overview.combined_realized_pnl.toFixed(2)} SOL
+
+        {/* 2. Combined Realized PnL */}
+        <div className="glass-panel p-4 space-y-1">
+          <div className="flex items-center justify-between text-slate-500 text-[11px] font-mono uppercase tracking-wider">
+            <span>Realized {timeframe !== "all" && `(${timeframe.toUpperCase()})`}</span>
+            <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+          </div>
+          <div
+            className={`text-xl sm:text-2xl font-bold font-mono ${
+              isRealizedProfit ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {isRealizedProfit ? "+" : ""}
+            {overview.combined_realized_pnl.toFixed(2)} SOL
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono block">
+            {timeframe === "all" ? "Across all closed trades" : `Closed trades in ${timeframe}`}
+          </span>
         </div>
-        <span className="text-[10px] text-slate-500 font-mono block">Across all closed trades</span>
-      </div>
 
       {/* 3. Combined Total PnL */}
       <div className="glass-panel p-4 space-y-1">
@@ -97,6 +131,7 @@ export function TrackerSummaryCards({ overview }: Props) {
           <div className="text-xs text-slate-500 font-mono pt-1">No trades recorded yet</div>
         )}
       </div>
+    </div>
     </div>
   );
 }

@@ -196,6 +196,7 @@ async def list_tracked_wallets(
     search: Optional[str] = None,
     tier: Optional[str] = None,
     category: Optional[str] = None,
+    timeframe: str = Query("all", pattern="^(all|7d|30d)$"),
     sort_by: str = Query("pnl", pattern="^(pnl|win_rate|trades|last_active|created_at|avg_position)$"),
     order: str = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
@@ -292,10 +293,62 @@ async def list_tracked_wallets(
     res = await db.execute(query)
     wallets = res.scalars().all()
 
+    # Timeframe calculation (7D, 30D, All-Time)
+    tf_stats: Dict[uuid.UUID, Dict[str, Any]] = {}
+    if timeframe in ("7d", "30d") and wallets:
+        days = 7 if timeframe == "7d" else 30
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        wallet_ids = [w.id for w in wallets]
+
+        pnl_query = (
+            select(
+                Position.wallet_id,
+                func.sum(Position.realized_pnl).label("tf_pnl"),
+                func.count(Position.id).label("closed_count"),
+                func.count(func.nullif(Position.realized_pnl <= 0, True)).label("winning_count"),
+            )
+            .where(
+                Position.wallet_id.in_(wallet_ids),
+                Position.status == "CLOSED",
+                Position.closed_at >= cutoff,
+            )
+            .group_by(Position.wallet_id)
+        )
+        pnl_rows = (await db.execute(pnl_query)).all()
+        for r in pnl_rows:
+            c_cnt = r.closed_count or 0
+            w_cnt = r.winning_count or 0
+            tf_stats[r.wallet_id] = {
+                "realized_pnl": float(r.tf_pnl or 0),
+                "closed_count": c_cnt,
+                "winning_count": w_cnt,
+                "win_rate": round((w_cnt / c_cnt * 100), 2) if c_cnt > 0 else 0.0,
+            }
+
+        trades_query = (
+            select(Trade.wallet_id, func.count(Trade.id).label("trade_cnt"))
+            .where(Trade.wallet_id.in_(wallet_ids), Trade.timestamp >= cutoff)
+            .group_by(Trade.wallet_id)
+        )
+        trades_rows = (await db.execute(trades_query)).all()
+        for r in trades_rows:
+            if r.wallet_id not in tf_stats:
+                tf_stats[r.wallet_id] = {"realized_pnl": 0.0, "closed_count": 0, "winning_count": 0, "win_rate": 0.0}
+            tf_stats[r.wallet_id]["trade_count"] = r.trade_cnt
+
     items = []
     for w in wallets:
         m = w.metrics
         latest_job = w.sync_jobs[-1].status if w.sync_jobs else "PENDING"
+        stat = tf_stats.get(w.id) if timeframe in ("7d", "30d") else None
+
+        realized = stat["realized_pnl"] if stat else (float(m.realized_pnl) if m and m.realized_pnl else 0.0)
+        unrealized = float(m.unrealized_pnl) if m and m.unrealized_pnl else 0.0
+        win_rate = stat["win_rate"] if stat else (float(m.win_rate) if m and m.win_rate else 0.0)
+        trade_count = stat.get("trade_count", 0) if stat else (m.trade_count if m else 0)
+        winning_trades = stat.get("winning_count", 0) if stat else (m.winning_trades if m else 0)
+        losing_trades = (stat["closed_count"] - stat["winning_count"]) if stat else (m.losing_trades if m else 0)
+
         items.append(
             TrackedWalletItem(
                 id=str(w.id),
@@ -306,13 +359,13 @@ async def list_tracked_wallets(
                 last_seen_at=w.last_seen_at,
                 is_tracked=w.is_tracked,
                 sync_status=latest_job,
-                trade_count=m.trade_count if m else 0,
-                winning_trades=m.winning_trades if m else 0,
-                losing_trades=m.losing_trades if m else 0,
-                win_rate=float(m.win_rate) if m and m.win_rate else 0.0,
-                realized_pnl=float(m.realized_pnl) if m and m.realized_pnl else 0.0,
-                unrealized_pnl=float(m.unrealized_pnl) if m and m.unrealized_pnl else 0.0,
-                total_pnl=float(m.total_pnl) if m and m.total_pnl else 0.0,
+                trade_count=trade_count,
+                winning_trades=winning_trades,
+                losing_trades=losing_trades,
+                win_rate=win_rate,
+                realized_pnl=realized,
+                unrealized_pnl=unrealized,
+                total_pnl=realized + unrealized,
                 roi=float(m.roi) if m and m.roi else 0.0,
                 median_hold_seconds=m.median_hold_seconds if m else None,
                 avg_position_usd=float(m.avg_position_usd) if m and m.avg_position_usd is not None else None,
@@ -376,6 +429,7 @@ async def untrack_wallet(
 
 @router.get("/tracker/overview", response_model=TrackerOverviewResponse)
 async def get_tracker_overview(
+    timeframe: str = Query("all", pattern="^(all|7d|30d)$"),
     db: AsyncSession = Depends(get_db),
 ):
     """Aggregated portfolio summary metrics across all tracked wallets."""
@@ -383,23 +437,53 @@ async def get_tracker_overview(
     count_stmt = select(func.count(Wallet.id)).where(Wallet.is_tracked == True)
     total_tracked = (await db.execute(count_stmt)).scalar() or 0
 
-    # Aggregated PnL & Win Rate
-    agg_stmt = (
-        select(
-            func.sum(WalletMetric.realized_pnl),
-            func.sum(WalletMetric.unrealized_pnl),
-            func.sum(WalletMetric.total_pnl),
-            func.avg(WalletMetric.win_rate),
+    if timeframe in ("7d", "30d"):
+        days = 7 if timeframe == "7d" else 30
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        tf_agg_stmt = (
+            select(
+                func.sum(Position.realized_pnl),
+                func.count(Position.id),
+                func.count(func.nullif(Position.realized_pnl <= 0, True)),
+            )
+            .join(Wallet, Wallet.id == Position.wallet_id)
+            .where(
+                Wallet.is_tracked == True,
+                Position.status == "CLOSED",
+                Position.closed_at >= cutoff,
+            )
         )
-        .join(Wallet, Wallet.id == WalletMetric.wallet_id)
-        .where(Wallet.is_tracked == True)
-    )
-    agg_res = (await db.execute(agg_stmt)).first()
+        tf_agg = (await db.execute(tf_agg_stmt)).first()
+        comb_realized = float(tf_agg[0] or 0) if tf_agg else 0.0
+        c_cnt = tf_agg[1] or 0 if tf_agg else 0
+        w_cnt = tf_agg[2] or 0 if tf_agg else 0
+        avg_win_rate = round((w_cnt / c_cnt * 100), 1) if c_cnt > 0 else 0.0
 
-    comb_realized = float(agg_res[0] or 0)
-    comb_unrealized = float(agg_res[1] or 0)
-    comb_total = float(agg_res[2] or 0)
-    avg_win_rate = round(float(agg_res[3] or 0), 1)
+        unrealized_stmt = (
+            select(func.sum(WalletMetric.unrealized_pnl))
+            .join(Wallet, Wallet.id == WalletMetric.wallet_id)
+            .where(Wallet.is_tracked == True)
+        )
+        comb_unrealized = float((await db.execute(unrealized_stmt)).scalar() or 0)
+        comb_total = comb_realized + comb_unrealized
+    else:
+        # Aggregated PnL & Win Rate
+        agg_stmt = (
+            select(
+                func.sum(WalletMetric.realized_pnl),
+                func.sum(WalletMetric.unrealized_pnl),
+                func.sum(WalletMetric.total_pnl),
+                func.avg(WalletMetric.win_rate),
+            )
+            .join(Wallet, Wallet.id == WalletMetric.wallet_id)
+            .where(Wallet.is_tracked == True)
+        )
+        agg_res = (await db.execute(agg_stmt)).first()
+
+        comb_realized = float(agg_res[0] or 0)
+        comb_unrealized = float(agg_res[1] or 0)
+        comb_total = float(agg_res[2] or 0)
+        avg_win_rate = round(float(agg_res[3] or 0), 1)
 
     # Active in last 24h
     now = datetime.now(timezone.utc)

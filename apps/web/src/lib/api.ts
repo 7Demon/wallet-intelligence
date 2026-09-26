@@ -238,9 +238,24 @@ export async function getWalletPositions(
   return res.json();
 }
 
-export async function getWalletPerformance(address: string): Promise<PerformanceResponse> {
-  const res = await fetch(`${API_BASE}/api/wallet/${address}/performance`, { cache: "no-store" });
+export async function getWalletPerformance(
+  address: string,
+  timeframe?: string
+): Promise<PerformanceResponse> {
+  const url = new URL(`${API_BASE}/api/wallet/${address}/performance`);
+  if (timeframe) url.searchParams.set("timeframe", timeframe);
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch performance");
+  return res.json();
+}
+
+export async function refreshWalletPrices(
+  address: string
+): Promise<{ updated_positions: number; unrealized_pnl: number }> {
+  const res = await fetch(`${API_BASE}/api/wallet/${address}/refresh-prices`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to refresh token prices");
   return res.json();
 }
 
@@ -262,6 +277,7 @@ export async function getTrackedWallets(params: {
   search?: string;
   tier?: string;
   category?: string;
+  timeframe?: string;
   sort_by?: string;
   order?: string;
   page?: number;
@@ -271,6 +287,7 @@ export async function getTrackedWallets(params: {
   if (params.search) url.searchParams.set("search", params.search);
   if (params.tier) url.searchParams.set("tier", params.tier);
   if (params.category) url.searchParams.set("category", params.category);
+  if (params.timeframe) url.searchParams.set("timeframe", params.timeframe);
   if (params.sort_by) url.searchParams.set("sort_by", params.sort_by);
   if (params.order) url.searchParams.set("order", params.order);
   if (params.page) url.searchParams.set("page", params.page.toString());
@@ -317,8 +334,10 @@ export async function untrackWallet(address: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to remove wallet from tracking");
 }
 
-export async function getTrackerOverview(): Promise<TrackerOverview> {
-  const res = await fetch(`${API_BASE}/api/wallets/tracker/overview`, { cache: "no-store" });
+export async function getTrackerOverview(timeframe?: string): Promise<TrackerOverview> {
+  const url = new URL(`${API_BASE}/api/wallets/tracker/overview`);
+  if (timeframe) url.searchParams.set("timeframe", timeframe);
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) throw new Error("Failed to fetch tracker overview");
   return res.json();
 }

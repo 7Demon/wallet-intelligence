@@ -21,6 +21,7 @@ from packages.database.models import (
     WalletMetric,
     WalletSyncJob,
 )
+from workers.fetcher.price_oracle import fetch_token_prices
 from workers.fetcher.solana_client import SolanaClient, validate_solana_address
 from workers.parser.swap_detector import detect_swap_and_reconstruct_trade
 from workers.parser.transfer_parser import parse_transaction_transfers, SOL_MINT
@@ -252,6 +253,25 @@ async def sync_wallet_history(
 
             # 6. Build positions
             positions = build_positions_from_trades(all_reconstructed_trades, wallet_id)
+
+            # 6b. Live Price Oracle for OPEN positions
+            id_to_mint = {v: k for k, v in tokens_cache.items()}
+            open_positions = [p for p in positions if p["status"] == "OPEN" and p["quantity"] > 0]
+            if open_positions:
+                open_mints = list({id_to_mint[p["token_id"]] for p in open_positions if p["token_id"] in id_to_mint})
+                if open_mints:
+                    try:
+                        live_prices = await fetch_token_prices(open_mints)
+                        for p in open_positions:
+                            mint = id_to_mint.get(p["token_id"])
+                            cur_price = live_prices.get(mint, Decimal("0"))
+                            if cur_price > Decimal("0"):
+                                market_val = p["quantity"] * cur_price
+                                p["unrealized_pnl"] = market_val - p["total_cost_basis"]
+                                if p["total_cost_basis"] > Decimal("0"):
+                                    p["roi"] = (p["unrealized_pnl"] / p["total_cost_basis"]) * Decimal("100")
+                    except Exception as err:
+                        logger.warning(f"Failed to fetch live prices for open positions: {err}")
 
             # Clear old positions for this wallet and insert new
             await session.execute(delete(Position).where(Position.wallet_id == wallet_id))

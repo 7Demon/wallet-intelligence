@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List, Optional
 import uuid
@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from workers.fetcher.price_oracle import fetch_token_prices
 
 from apps.api.schemas.wallet import (
     ClassificationResponse,
@@ -291,12 +292,65 @@ async def get_wallet_positions(
     ]
 
 
-@router.get("/{address}/performance", response_model=PerformanceResponse)
-async def get_wallet_performance(
+@router.post("/{address}/refresh-prices")
+async def refresh_wallet_open_positions_price(
     address: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve holding time distribution histogram and PnL performance summary."""
+    """Fetch real-time prices for all OPEN positions from DexScreener and update unrealized PnL."""
+    w_res = await db.execute(select(Wallet.id).where(Wallet.address == address))
+    wallet_id = w_res.scalar_one_or_none()
+    if not wallet_id:
+        raise HTTPException(status_code=404, detail="Wallet not found")
+
+    query = (
+        select(Position)
+        .options(selectinload(Position.token))
+        .where(Position.wallet_id == wallet_id, Position.status == "OPEN")
+    )
+    res = await db.execute(query)
+    open_positions = res.scalars().all()
+
+    if not open_positions:
+        return {"updated_positions": 0, "unrealized_pnl": 0.0}
+
+    mints = [p.token.address for p in open_positions if p.token and p.token.address]
+    prices = await fetch_token_prices(mints)
+
+    total_unrealized = Decimal("0")
+    updated_count = 0
+    for p in open_positions:
+        if p.token and p.token.address in prices:
+            cur_price = prices[p.token.address]
+            if cur_price > Decimal("0"):
+                market_val = p.quantity * cur_price
+                p.unrealized_pnl = market_val - (p.total_cost_basis or Decimal("0"))
+                if p.total_cost_basis and p.total_cost_basis > Decimal("0"):
+                    p.roi = (p.unrealized_pnl / p.total_cost_basis) * Decimal("100")
+                total_unrealized += p.unrealized_pnl
+                updated_count += 1
+
+    # Update WalletMetric
+    m_res = await db.execute(select(WalletMetric).where(WalletMetric.wallet_id == wallet_id))
+    metric = m_res.scalar_one_or_none()
+    if metric:
+        metric.unrealized_pnl = total_unrealized
+        metric.total_pnl = (metric.realized_pnl or Decimal("0")) + total_unrealized
+
+    await db.commit()
+    return {
+        "updated_positions": updated_count,
+        "unrealized_pnl": float(total_unrealized),
+    }
+
+
+@router.get("/{address}/performance", response_model=PerformanceResponse)
+async def get_wallet_performance(
+    address: str,
+    timeframe: str = Query("all", pattern="^(all|7d|30d)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve holding time distribution histogram and PnL performance summary with optional timeframe."""
     w_res = await db.execute(select(Wallet.id).where(Wallet.address == address))
     wallet_id = w_res.scalar_one_or_none()
     if not wallet_id:
@@ -306,6 +360,12 @@ async def get_wallet_performance(
     query = select(Position).where(
         Position.wallet_id == wallet_id, Position.status == "CLOSED"
     )
+
+    if timeframe in ("7d", "30d"):
+        days = 7 if timeframe == "7d" else 30
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        query = query.where(Position.closed_at >= cutoff)
+
     res = await db.execute(query)
     closed_pos = res.scalars().all()
 
@@ -342,13 +402,25 @@ async def get_wallet_performance(
     m_res = await db.execute(select(WalletMetric).where(WalletMetric.wallet_id == wallet_id))
     m = m_res.scalar_one_or_none()
 
-    pnl_summary = {
-        "realized_pnl": float(m.realized_pnl or 0) if m else 0,
-        "unrealized_pnl": float(m.unrealized_pnl or 0) if m else 0,
-        "total_pnl": float(m.total_pnl or 0) if m else 0,
-        "win_rate": float(m.win_rate or 0) if m else 0,
-        "roi": float(m.roi or 0) if m else 0,
-    }
+    if timeframe in ("7d", "30d"):
+        tf_realized = sum((p.realized_pnl or Decimal("0") for p in closed_pos), Decimal("0"))
+        tf_winners = sum(1 for p in closed_pos if (p.realized_pnl or Decimal("0")) > 0)
+        tf_win_rate = (tf_winners / len(closed_pos) * 100) if closed_pos else 0.0
+        pnl_summary = {
+            "realized_pnl": float(tf_realized),
+            "unrealized_pnl": float(m.unrealized_pnl or 0) if m else 0,
+            "total_pnl": float(tf_realized + (m.unrealized_pnl or Decimal("0") if m else Decimal("0"))),
+            "win_rate": float(round(tf_win_rate, 2)),
+            "roi": float(m.roi or 0) if m else 0,
+        }
+    else:
+        pnl_summary = {
+            "realized_pnl": float(m.realized_pnl or 0) if m else 0,
+            "unrealized_pnl": float(m.unrealized_pnl or 0) if m else 0,
+            "total_pnl": float(m.total_pnl or 0) if m else 0,
+            "win_rate": float(m.win_rate or 0) if m else 0,
+            "roi": float(m.roi or 0) if m else 0,
+        }
 
     return PerformanceResponse(
         holding_time_distribution=distribution,
