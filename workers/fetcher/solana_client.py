@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import re
 from typing import Any, Dict, List, Optional
@@ -6,6 +7,8 @@ import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger("solana_client")
 
 BASE58_PATTERN = re.compile(r"^[1-9A-HJ-NP-za-km-z]{32,44}$")
 
@@ -25,7 +28,21 @@ class SolanaClient:
         base_delay: float = 0.5,
         timeout: float = 30.0,
     ):
-        self.rpc_url = rpc_url or os.getenv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com")
+        helius_key = os.getenv("HELIUS_API_KEY") or os.getenv("api_key")
+        env_rpc = os.getenv("SOLANA_RPC_URL")
+
+        if rpc_url:
+            self.rpc_url = rpc_url
+        elif env_rpc and "api-key=" in env_rpc:
+            self.rpc_url = env_rpc
+        elif helius_key:
+            clean_key = helius_key.strip().strip("'\"")
+            self.rpc_url = f"https://mainnet.helius-rpc.com/?api-key={clean_key}"
+        elif env_rpc:
+            self.rpc_url = env_rpc
+        else:
+            self.rpc_url = "https://api.mainnet-beta.solana.com"
+
         self.max_retries = max_retries
         self.base_delay = base_delay
         self.timeout = timeout
@@ -42,6 +59,8 @@ class SolanaClient:
                         headers={"Content-Type": "application/json"},
                     )
                     if response.status_code == 429:  # Rate limited
+                        if attempt == self.max_retries - 1:
+                            raise RuntimeError(f"Solana RPC rate limited (429) after {self.max_retries} attempts.")
                         await asyncio.sleep(delay)
                         delay *= 2
                         continue
@@ -127,7 +146,19 @@ class SolanaClient:
 
         batch_res = await self._post_rpc(payload)
         if not isinstance(batch_res, list):
-            raise RuntimeError("Expected batch response array from Solana RPC")
+            logger.warning(
+                f"Batch RPC returned non-list response, falling back to individual calls: {batch_res}"
+            )
+            sem = asyncio.Semaphore(5)
+
+            async def _fetch_safe(sig: str) -> Optional[Dict[str, Any]]:
+                async with sem:
+                    try:
+                        return await self.get_parsed_transaction(sig)
+                    except Exception:
+                        return None
+
+            return await asyncio.gather(*[_fetch_safe(sig) for sig in signatures])
 
         # Sort responses by id to match signatures order
         results_by_id = {item.get("id"): item.get("result") for item in batch_res if isinstance(item, dict)}

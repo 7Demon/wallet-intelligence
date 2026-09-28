@@ -5,7 +5,7 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, func, or_, select, update
+from sqlalchemy import and_, desc, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -39,6 +39,25 @@ class BulkImportResponse(BaseModel):
     imported_addresses: List[str]
 
 
+class BulkSyncRequest(BaseModel):
+    addresses: List[str]
+
+
+class BulkUntrackRequest(BaseModel):
+    addresses: List[str]
+
+
+class DormantSummaryResponse(BaseModel):
+    dormant_count: int
+    total_tracked: int
+    dormant_addresses: List[str]
+
+
+class DormantCleanupResponse(BaseModel):
+    untracked_count: int
+    message: str
+
+
 class TrackedWalletItem(BaseModel):
     id: str
     address: str
@@ -48,6 +67,9 @@ class TrackedWalletItem(BaseModel):
     last_seen_at: Optional[datetime] = None
     is_tracked: bool = True
     sync_status: str = "PENDING"
+    # Dormant & Inactivity status
+    is_dormant: bool = False
+    days_inactive: Optional[int] = None
     # Metrics
     trade_count: int = 0
     winning_trades: int = 0
@@ -121,25 +143,43 @@ async def bulk_import_wallets(
     invalid_addresses = []
     valid_addresses = []
 
-    # Clean & validate
+    # Clean & validate with support for "address, Custom Label" or "address | Custom Label"
+    parsed_entries: List[tuple[str, Optional[str]]] = []
     seen = set()
-    for addr in raw_addresses:
-        cleaned = addr.strip()
-        if not cleaned:
-            continue
-        if cleaned in seen:
-            continue
-        seen.add(cleaned)
 
-        if validate_solana_address(cleaned):
-            valid_addresses.append(cleaned)
+    for entry in raw_addresses:
+        cleaned_entry = entry.strip()
+        if not cleaned_entry:
+            continue
+
+        custom_label = None
+        cleaned_addr = cleaned_entry
+        for sep in [",", "|", "\t"]:
+            if sep in cleaned_entry:
+                parts = cleaned_entry.split(sep, 1)
+                cand_addr = parts[0].strip()
+                cand_lbl = parts[1].strip()
+                if validate_solana_address(cand_addr):
+                    cleaned_addr = cand_addr
+                    custom_label = cand_lbl if cand_lbl else None
+                    break
+
+        if cleaned_addr in seen:
+            continue
+        seen.add(cleaned_addr)
+
+        if validate_solana_address(cleaned_addr):
+            parsed_entries.append((cleaned_addr, custom_label))
+            valid_addresses.append(cleaned_addr)
         else:
-            invalid_addresses.append(cleaned)
+            invalid_addresses.append(cleaned_entry)
 
     imported_addresses = []
     already_tracked = 0
 
-    for addr in valid_addresses:
+    for addr, custom_label in parsed_entries:
+        effective_label = custom_label or payload.default_label
+
         stmt = select(Wallet).where(Wallet.address == addr)
         res = await db.execute(stmt)
         existing = res.scalar_one_or_none()
@@ -147,28 +187,27 @@ async def bulk_import_wallets(
         if existing:
             if not existing.is_tracked:
                 existing.is_tracked = True
-                if payload.default_label:
-                    if not existing.label:
-                        existing.label = payload.default_label
+                if effective_label:
+                    existing.label = effective_label
                     current_tags = list(existing.tags or [])
-                    if payload.default_label not in current_tags:
-                        current_tags.append(payload.default_label)
+                    if effective_label not in current_tags:
+                        current_tags.append(effective_label)
                         existing.tags = current_tags
                 imported_addresses.append(addr)
             else:
-                if payload.default_label and not existing.label:
-                    existing.label = payload.default_label
+                if effective_label:
+                    existing.label = effective_label
                     current_tags = list(existing.tags or [])
-                    if payload.default_label not in current_tags:
-                        current_tags.append(payload.default_label)
+                    if effective_label not in current_tags:
+                        current_tags.append(effective_label)
                         existing.tags = current_tags
                 already_tracked += 1
         else:
-            tags = [payload.default_label] if payload.default_label else []
+            tags = [effective_label] if effective_label else []
             new_wallet = Wallet(
                 address=addr,
                 chain="solana",
-                label=payload.default_label,
+                label=effective_label,
                 tags=tags,
                 is_tracked=True,
             )
@@ -196,6 +235,7 @@ async def list_tracked_wallets(
     search: Optional[str] = None,
     tier: Optional[str] = None,
     category: Optional[str] = None,
+    activity_status: Optional[str] = Query(None, pattern="^(all|active|dormant)$"),
     timeframe: str = Query("all", pattern="^(all|7d|30d)$"),
     sort_by: str = Query("pnl", pattern="^(pnl|win_rate|trades|last_active|created_at|avg_position)$"),
     order: str = Query("desc", pattern="^(asc|desc)$"),
@@ -263,6 +303,23 @@ async def list_tracked_wallets(
                 or_(
                     WalletMetric.capital_tier.in_(["SHRIMP", "MICRO", "SMALL"]),
                     WalletMetric.avg_position_usd < 1000.0,
+                )
+            )
+
+    if activity_status in ("active", "dormant"):
+        cutoff_30d = datetime.now(timezone.utc) - timedelta(days=30)
+        if activity_status == "dormant":
+            query = query.where(
+                or_(
+                    Wallet.last_seen_at < cutoff_30d,
+                    and_(Wallet.last_seen_at.is_(None), Wallet.created_at < cutoff_30d),
+                )
+            )
+        elif activity_status == "active":
+            query = query.where(
+                or_(
+                    Wallet.last_seen_at >= cutoff_30d,
+                    and_(Wallet.last_seen_at.is_(None), Wallet.created_at >= cutoff_30d),
                 )
             )
 
@@ -349,6 +406,16 @@ async def list_tracked_wallets(
         winning_trades = stat.get("winning_count", 0) if stat else (m.winning_trades if m else 0)
         losing_trades = (stat["closed_count"] - stat["winning_count"]) if stat else (m.losing_trades if m else 0)
 
+        # Determine dormant status (>30 days inactive)
+        now_utc = datetime.now(timezone.utc)
+        ref_time = w.last_seen_at or w.created_at
+        if ref_time:
+            ref_aware = ref_time if ref_time.tzinfo else ref_time.replace(tzinfo=timezone.utc)
+            days_inactive = max(0, (now_utc - ref_aware).days)
+        else:
+            days_inactive = None
+        is_dormant = bool(days_inactive is not None and days_inactive >= 30)
+
         items.append(
             TrackedWalletItem(
                 id=str(w.id),
@@ -359,6 +426,8 @@ async def list_tracked_wallets(
                 last_seen_at=w.last_seen_at,
                 is_tracked=w.is_tracked,
                 sync_status=latest_job,
+                is_dormant=is_dormant,
+                days_inactive=days_inactive,
                 trade_count=trade_count,
                 winning_trades=winning_trades,
                 losing_trades=losing_trades,
@@ -382,6 +451,101 @@ async def list_tracked_wallets(
         total_records=total_records,
         items=items,
     )
+
+
+@router.get("/dormant/summary", response_model=DormantSummaryResponse)
+async def get_dormant_summary(db: AsyncSession = Depends(get_db)):
+    """Summary of dormant wallets (>30 days inactive) in watchlist."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    dormant_cond = and_(
+        Wallet.is_tracked == True,
+        or_(
+            Wallet.last_seen_at < cutoff,
+            and_(Wallet.last_seen_at.is_(None), Wallet.created_at < cutoff),
+        ),
+    )
+    stmt = select(Wallet.address).where(dormant_cond)
+    res = await db.execute(stmt)
+    dormant_addresses = [row[0] for row in res.all()]
+
+    total_tracked_stmt = select(func.count(Wallet.id)).where(Wallet.is_tracked == True)
+    total_tracked = (await db.execute(total_tracked_stmt)).scalar() or 0
+
+    return DormantSummaryResponse(
+        dormant_count=len(dormant_addresses),
+        total_tracked=total_tracked,
+        dormant_addresses=dormant_addresses,
+    )
+
+
+@router.post("/dormant/cleanup", response_model=DormantCleanupResponse)
+async def cleanup_dormant_wallets(db: AsyncSession = Depends(get_db)):
+    """1-Click cleanup: untrack all dormant wallets (>30 days inactive) to conserve RPC quota."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    dormant_cond = and_(
+        Wallet.is_tracked == True,
+        or_(
+            Wallet.last_seen_at < cutoff,
+            and_(Wallet.last_seen_at.is_(None), Wallet.created_at < cutoff),
+        ),
+    )
+    update_stmt = (
+        update(Wallet)
+        .where(dormant_cond)
+        .values(is_tracked=False, updated_at=datetime.now(timezone.utc))
+        .returning(Wallet.address)
+    )
+    res = await db.execute(update_stmt)
+    untracked = res.scalars().all()
+    await db.commit()
+
+    return DormantCleanupResponse(
+        untracked_count=len(untracked),
+        message=f"{len(untracked)} dormant wallet(s) (>30 days inactive) untracked successfully.",
+    )
+
+
+@router.post("/bulk-sync", status_code=status.HTTP_202_ACCEPTED)
+async def bulk_sync_wallets(
+    payload: BulkSyncRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger background incremental sync for selected wallets or group."""
+    valid_addrs = [a.strip() for a in payload.addresses if validate_solana_address(a.strip())]
+    for addr in valid_addrs:
+        background_tasks.add_task(sync_wallet_history, addr)
+
+    return {
+        "status": "ok",
+        "queued_count": len(valid_addrs),
+        "message": f"{len(valid_addrs)} wallet(s) queued for synchronization.",
+    }
+
+
+@router.post("/bulk-untrack", status_code=status.HTTP_200_OK)
+async def bulk_untrack_wallets(
+    payload: BulkUntrackRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Untrack multiple selected wallets from watchlist."""
+    addrs = [a.strip() for a in payload.addresses if a.strip()]
+    if not addrs:
+        return {"status": "ok", "untracked_count": 0, "message": "No addresses provided."}
+
+    stmt = (
+        update(Wallet)
+        .where(Wallet.address.in_(addrs))
+        .values(is_tracked=False, updated_at=datetime.now(timezone.utc))
+    )
+    res = await db.execute(stmt)
+    await db.commit()
+
+    return {
+        "status": "ok",
+        "untracked_count": res.rowcount or len(addrs),
+        "message": f"Successfully removed {len(addrs)} wallet(s) from active tracking.",
+    }
 
 
 @router.patch("/{address}", status_code=status.HTTP_200_OK)

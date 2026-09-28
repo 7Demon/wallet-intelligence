@@ -53,6 +53,9 @@ class CoverageResponse(BaseModel):
 class WalletOverviewResponse(BaseModel):
     address: str
     chain: str
+    label: Optional[str] = None
+    is_tracked: bool = True
+    tags: List[str] = []
     first_seen_at: Optional[datetime] = None
     last_active_at: Optional[datetime] = None
     metrics: Optional[MetricsResponse] = None

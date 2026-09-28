@@ -17,6 +17,8 @@ import {
   AlertCircle,
   Activity,
   Layers,
+  Tag,
+  Edit2,
 } from "lucide-react";
 import {
   getWalletOverview,
@@ -25,6 +27,7 @@ import {
   triggerWalletSync,
   getSyncStatus,
   refreshWalletPrices,
+  updateWallet,
   WalletOverview,
   PerformanceResponse,
   InitialFundingResponse,
@@ -57,6 +60,23 @@ export default function WalletDashboardPage({
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"trades" | "tokens">("trades");
   const [mounted, setMounted] = useState(false);
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelValue, setLabelValue] = useState("");
+  const [savingLabel, setSavingLabel] = useState(false);
+
+  const handleSaveWalletLabel = async () => {
+    try {
+      setSavingLabel(true);
+      await updateWallet(address, { label: labelValue.trim() || undefined });
+      setEditingLabel(false);
+      const updated = await getWalletOverview(address);
+      setOverview(updated);
+    } catch (err: any) {
+      alert("Failed to save wallet label: " + (err.message || err));
+    } finally {
+      setSavingLabel(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -280,6 +300,60 @@ export default function WalletDashboardPage({
               >
                 <ExternalLink className="w-4 h-4" />
               </a>
+            </div>
+
+            {/* Wallet Name / Label */}
+            <div className="flex items-center gap-2 py-0.5">
+              {editingLabel ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={labelValue}
+                    onChange={(e) => setLabelValue(e.target.value)}
+                    placeholder="Nama / Label Wallet"
+                    className="bg-slate-900 border border-purple-500/50 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-400 font-sans w-52"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveWalletLabel();
+                      if (e.key === "Escape") setEditingLabel(false);
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveWalletLabel}
+                    disabled={savingLabel}
+                    className="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
+                  >
+                    {savingLabel ? "Saving..." : "Simpan"}
+                  </button>
+                  <button
+                    onClick={() => setEditingLabel(false)}
+                    className="text-xs text-slate-400 hover:text-slate-200"
+                  >
+                    Batal
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {overview?.label ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold font-sans">
+                      <Tag className="w-3.5 h-3.5 text-purple-400" />
+                      {overview.label}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500 italic">Belum ada nama</span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setLabelValue(overview?.label || "");
+                      setEditingLabel(true);
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 text-[11px] font-mono transition-colors"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                    <span>{overview?.label ? "Ubah Nama" : "+ Beri Nama"}</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400">

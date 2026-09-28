@@ -32,3 +32,6 @@ build/
 dist/
 .DS_Store
 Thumbs.db
+
+# Scratch / Local test scripts
+scratch/

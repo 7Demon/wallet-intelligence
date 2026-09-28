@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, List, Optional
 import uuid
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +21,7 @@ from packages.database.models import (
     WalletMetric,
     WalletSyncJob,
 )
-from workers.fetcher.price_oracle import fetch_token_prices
+from workers.fetcher.price_oracle import fetch_token_prices, fetch_token_metadata_and_prices
 from workers.fetcher.solana_client import SolanaClient, validate_solana_address
 from workers.parser.swap_detector import detect_swap_and_reconstruct_trade
 from workers.parser.transfer_parser import parse_transaction_transfers, SOL_MINT
@@ -65,6 +65,15 @@ async def sync_wallet_history(
 
         wallet_id = wallet.id
 
+        # Check latest known transaction signature for incremental delta-sync
+        latest_sig_stmt = (
+            select(Transaction.tx_hash)
+            .where(Transaction.wallet_address == wallet_address)
+            .order_by(Transaction.block_time.desc().nullslast(), Transaction.id.desc())
+            .limit(1)
+        )
+        latest_sig = (await session.execute(latest_sig_stmt)).scalar_one_or_none()
+
         # 2. Create sync job
         sync_job = WalletSyncJob(
             wallet_id=wallet_id,
@@ -77,13 +86,15 @@ async def sync_wallet_history(
         job_id = sync_job.id
 
     try:
-        # 3. Fetch signatures
+        # 3. Fetch signatures (incremental with until=latest_sig)
         signatures_info = await client.get_signatures_for_address(
-            wallet_address, limit=max_tx_limit
+            wallet_address, limit=max_tx_limit, until=latest_sig
         )
 
         total_tx = len(signatures_info)
-        logger.info(f"Fetched {total_tx} signatures for wallet {wallet_address}")
+        logger.info(
+            f"Fetched {total_tx} new signatures for wallet {wallet_address} (until={latest_sig})"
+        )
 
         async with async_session_factory() as session:
             await session.execute(
@@ -92,13 +103,21 @@ async def sync_wallet_history(
                 .values(
                     total_transactions=total_tx,
                     status="SYNCING" if total_tx > 0 else "COMPLETED",
-                    progress_percentage=Decimal("30.0"),
+                    progress_percentage=Decimal("30.0") if total_tx > 0 else Decimal("100.0"),
+                    completed_at=datetime.now(timezone.utc) if total_tx == 0 else None,
                 )
             )
             await session.commit()
 
         if total_tx == 0:
-            return {"status": "COMPLETED", "transactions": 0, "trades": 0}
+            return {
+                "status": "COMPLETED",
+                "wallet_address": wallet_address,
+                "total_transactions": 0,
+                "parsed_transactions": 0,
+                "reconstructed_trades": 0,
+                "message": "Already up-to-date. No new transactions found.",
+            }
 
         # 4. Fetch full parsed transactions in batches
         signatures = [sig["signature"] for sig in signatures_info]
@@ -252,7 +271,45 @@ async def sync_wallet_history(
                     parsed_count += 1
 
             # 6. Build positions
-            positions = build_positions_from_trades(all_reconstructed_trades, wallet_id)
+            # For complete portfolio accounting, fetch all historical trades for this wallet
+            all_wallet_trades_res = await session.execute(
+                select(Trade)
+                .where(Trade.wallet_id == wallet_id)
+                .order_by(Trade.timestamp.asc())
+            )
+            all_historical_trades = [
+                {
+                    "token_id": t.token_id,
+                    "side": t.side,
+                    "token_amount": t.token_amount,
+                    "quote_amount": t.quote_amount,
+                    "price": t.price,
+                    "timestamp": t.timestamp,
+                }
+                for t in all_wallet_trades_res.scalars()
+            ]
+
+            positions = build_positions_from_trades(all_historical_trades, wallet_id)
+
+            # 6a. Enrich tokens with metadata (symbol & name from DexScreener)
+            traded_token_ids = list({t["token_id"] for t in all_historical_trades})
+            if traded_token_ids:
+                unnamed_tok_res = await session.execute(
+                    select(Token).where(Token.id.in_(traded_token_ids), Token.symbol.is_(None))
+                )
+                unnamed_tokens = unnamed_tok_res.scalars().all()
+                if unnamed_tokens:
+                    unnamed_addrs = [tok.address for tok in unnamed_tokens]
+                    try:
+                        meta_dict = await fetch_token_metadata_and_prices(unnamed_addrs)
+                        for tok in unnamed_tokens:
+                            info = meta_dict.get(tok.address)
+                            if info and info.get("symbol"):
+                                tok.symbol = info["symbol"]
+                                tok.name = info.get("name")
+                        await session.flush()
+                    except Exception as err:
+                        logger.warning(f"Failed to fetch metadata for traded tokens: {err}")
 
             # 6b. Live Price Oracle for OPEN positions
             id_to_mint = {v: k for k, v in tokens_cache.items()}
@@ -293,10 +350,21 @@ async def sync_wallet_history(
                     )
                 )
 
+            # Lifetime transaction bounds across all historical transactions in DB
+            bounds_stmt = (
+                select(func.min(Transaction.block_time), func.max(Transaction.block_time))
+                .where(Transaction.wallet_address == wallet_address)
+            )
+            bounds_res = (await session.execute(bounds_stmt)).first()
+            if bounds_res and bounds_res[0]:
+                first_block_time = bounds_res[0]
+            if bounds_res and bounds_res[1]:
+                last_block_time = bounds_res[1]
+
             # 7. Calculate wallet metrics & classification
             metrics_dict = calculate_wallet_metrics_and_classification(
                 wallet_id=wallet_id,
-                trades=all_reconstructed_trades,
+                trades=all_historical_trades,
                 positions=positions,
                 first_seen_at=first_block_time,
                 last_seen_at=last_block_time,

@@ -52,3 +52,35 @@ async def test_price_oracle_caching_and_parsing():
         cached_prices = await fetch_token_prices(tokens)
         assert cached_prices["TokenA111111111111111111111111111111111111"] == Decimal("1.25")
         mock_client.get.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_metadata_extraction_with_symbol_and_name():
+    from workers.fetcher.price_oracle import fetch_token_metadata_and_prices, _PRICE_CACHE
+
+    mock_response = {
+        "pairs": [
+            {
+                "baseToken": {
+                    "address": "TokenPump111111111111111111111111111111111111",
+                    "symbol": "SUPERPUMP",
+                    "name": "Super Pump Token",
+                },
+                "priceUsd": "0.00045",
+                "liquidity": {"usd": 150000},
+            }
+        ]
+    }
+
+    mock_client = AsyncMock()
+    mock_client.get.return_value = AsyncMock(status_code=200, json=lambda: mock_response)
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.__aexit__.return_value = None
+
+    with patch("workers.fetcher.price_oracle.httpx.AsyncClient", return_value=mock_client):
+        _PRICE_CACHE.clear()
+        res = await fetch_token_metadata_and_prices(["TokenPump111111111111111111111111111111111111"])
+        item = res["TokenPump111111111111111111111111111111111111"]
+        assert item["price"] == Decimal("0.00045")
+        assert item["symbol"] == "SUPERPUMP"
+        assert item["name"] == "Super Pump Token"

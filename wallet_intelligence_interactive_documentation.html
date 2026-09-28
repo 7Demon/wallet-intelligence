@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wallet Intelligence — Dokumentasi Desain Sistem &amp; Arsitektur</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              900: '#0c4a6e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #0f172a;
+      background-color: #f8fafc;
+      scroll-behavior: smooth;
+    }
+    
+    code, pre, .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Clean subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-sky-100 selection:text-sky-900">
+
+  <!-- Top Navigation Bar (Clean White) -->
+  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="h-9 w-9 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
+          <i class="fa-solid fa-chart-line"></i>
+        </div>
+        <div>
+          <span class="font-bold text-slate-900 text-base tracking-tight flex items-center gap-2">
+            Wallet Intelligence <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">Solana Core</span>
+          </span>
+          <p class="text-xs text-slate-500">System Design &amp; Engine Architecture Documentation</p>
+        </div>
+      </div>
+
+      <!-- Search & Quick Navigation -->
+      <div class="flex items-center space-x-3">
+        <div class="relative hidden sm:block">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+          <input 
+            type="text" 
+            id="globalSearch" 
+            placeholder="Cari dokumentasi, tabel, API..." 
+            class="bg-slate-50 border border-slate-300 rounded-lg pl-8 pr-4 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-sky-600 focus:ring-1 focus:ring-sky-600 w-60 transition"
+            onkeyup="searchContent()"
+          />
+        </div>
+        <a href="#simulator" class="text-xs bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 shadow-sm">
+          <i class="fa-solid fa-calculator"></i> Simulator WACB
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 flex gap-8 w-full">
+    
+    <!-- Left Navigation Sidebar -->
+    <aside class="w-60 flex-shrink-0 hidden lg:block">
+      <div class="sticky top-24 space-y-6">
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Menu Dokumen</h3>
+          <nav class="space-y-1" id="sidebarNav">
+            <a href="#overview" class="flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg text-slate-700 hover:text-sky-700 hover:bg-slate-100 transition">
+              <i class="fa-solid fa-compass text-slate-400 w-4"></i> Ringkasan Sistem
+            </a>
+            <a href="#architecture" class="flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg text-slate-700 hover:text-sky-700 hover:bg-slate-100 transition">
+              <i class="fa-solid fa-network-wired text-slate-400 w-4"></i> Arsitektur &amp; Pipeline
+            </a>
+            <a href="#database" class="flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg text-slate-700 hover:text-sky-700 hover:bg-slate-100 transition">
+              <i class="fa-solid fa-database text-slate-400 w-4"></i> Skema Basis Data (ERD)
+            </a>
+            <a href="#simulator" class="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-sky-700 bg-sky-50 border border-sky-100 transition">
+              <i class="fa-solid fa-calculator text-sky-600 w-4"></i> Simulator Interaktif WACB
+            </a>
+            <a href="#classification" class="flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg text-slate-700 hover:text-sky-700 hover:bg-slate-100 transition">
+              <i class="fa-solid fa-tags text-slate-400 w-4"></i> Klasifikasi Profil Trader
+            </a>
+            <a href="#api" class="flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg text-slate-700 hover:text-sky-700 hover:bg-slate-100 transition">
+              <i class="fa-solid fa-code text-slate-400 w-4"></i> Spesifikasi REST API
+            </a>
+            <a href="#devguide" class="flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg text-slate-700 hover:text-sky-700 hover:bg-slate-100 transition">
+              <i class="fa-solid fa-laptop-code text-slate-400 w-4"></i> Panduan Developer
+            </a>
+          </nav>
+        </div>
+
+        <!-- System Status Summary Box -->
+        <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-sm text-xs space-y-2">
+          <div class="flex items-center justify-between text-slate-600 font-medium">
+            <span>Status Engine</span>
+            <span class="inline-flex items-center gap-1.5 text-emerald-600 font-semibold">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Siap
+            </span>
+          </div>
+          <div class="text-[11px] text-slate-500 pt-2 border-t border-slate-100 leading-relaxed font-mono">
+            Stack: FastAPI + PG<br>
+            Metode: WACB Standard<br>
+            Coverage: 98%+
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 min-w-0 space-y-10">
+
+      <!-- Section: System Overview -->
+      <section id="overview" class="doc-section space-y-5">
+        <div class="p-7 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
+            <i class="fa-solid fa-shield-halved text-sky-600"></i> Dokumentasi Teknis Sistem
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Solana-First On-Chain <span class="text-sky-700">Trader Analytics</span>
+          </h1>
+          <p class="text-slate-600 text-sm sm:text-base leading-relaxed max-w-3xl">
+            <strong>Wallet Intelligence</strong> adalah mesin analitik on-chain presisi tinggi yang merekonstruksi data riwayat transaksi mentah Solana menjadi metrik kinerja trader (*PnL, Win Rate, ROI, Holding Duration*) secara transparan melalui standar akuntansi <em>Weighted Average Cost Basis (WACB)</em>.
+          </p>
+
+          <!-- Metrics Highlights Card -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5 border-t border-slate-100">
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div class="text-xs text-slate-500 font-medium">Throughput Ingestion</div>
+              <div class="text-lg font-bold text-slate-900 font-mono mt-0.5">25 Tx / Batch</div>
+              <div class="text-[11px] text-sky-700 font-medium">Optimasi RPC</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div class="text-xs text-slate-500 font-medium">Model Akuntansi</div>
+              <div class="text-lg font-bold text-slate-900 font-mono mt-0.5">WACB</div>
+              <div class="text-[11px] text-slate-600">Partial Exit Support</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div class="text-xs text-slate-500 font-medium">Metrik Holding Time</div>
+              <div class="text-lg font-bold text-slate-900 font-mono mt-0.5">Median</div>
+              <div class="text-[11px] text-slate-600">Bebas Bias Outlier</div>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div class="text-xs text-slate-500 font-medium">Arsip Mentah</div>
+              <div class="text-lg font-bold text-slate-900 font-mono mt-0.5">JSONB</div>
+              <div class="text-[11px] text-slate-600">Re-parse Tanpa RPC</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Core Pillars Cards (Clean White) -->
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="p-5 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-slate-300 transition">
+            <div class="flex items-center gap-2.5 mb-2">
+              <div class="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center font-bold text-sm">1</div>
+              <h3 class="font-bold text-sm text-slate-900">Engine First, Dashboard Last</h3>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Fokus utama adalah akurasi rekonsiliasi data dan auditability. Integritas saldo dan kalkulasi PnL menjadi prioritas di atas estetika semata.
+            </p>
+          </div>
+          <div class="p-5 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-slate-300 transition">
+            <div class="flex items-center gap-2.5 mb-2">
+              <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm">2</div>
+              <h3 class="font-bold text-sm text-slate-900">Kebenaran di Atas Asumsi</h3>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Jika transaksi multi-hop atau DEX baru tidak dikenali polanya, engine menandainya sebagai <code class="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono text-[11px]">UNKNOWN</code> untuk diinspeksi, daripada menebak secara keliru.
+            </p>
+          </div>
+          <div class="p-5 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-slate-300 transition">
+            <div class="flex items-center gap-2.5 mb-2">
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-sm">3</div>
+              <h3 class="font-bold text-sm text-slate-900">100% Reproducibility</h3>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Payload mentah disimpan permanen di basis data PostgreSQL. Ketika parser ditingkatkan, seluruh riwayat transaksi dapat diproses ulang tanpa query RPC baru.
+            </p>
+          </div>
+          <div class="p-5 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-slate-300 transition">
+            <div class="flex items-center gap-2.5 mb-2">
+              <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-sm">4</div>
+              <h3 class="font-bold text-sm text-slate-900">Lean Zero-Cost Architecture</h3>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Dapat dijalankan secara efisien tanpa memerlukan infrastruktur mahal seperti Kafka, ClickHouse, atau kluster server rumit. Cukup FastAPI, PostgreSQL, dan Next.js.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: System Architecture & Data Pipeline -->
+      <section id="architecture" class="doc-section space-y-5">
+        <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-network-wired text-sky-600"></i> Diagram Arsitektur &amp; Pipeline Data
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Peta visual komprehensif interaksi komponen: Client, FastAPI, Pipeline Asinkron, Database, dan Eksternal Node.</p>
+          </div>
+          <span class="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200">workers/sync_worker.py</span>
+        </div>
+
+        <!-- Interactive Architecture Visual Board (Crisp HTML/CSS Design) -->
+        <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
+            <div>
+              <span class="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono flex items-center gap-2">
+                <i class="fa-solid fa-diagram-project text-sky-600"></i> Peta Topologi Arsitektur Sistem
+              </span>
+              <p class="text-[11px] text-slate-500 mt-0.5">Klik salah satu komponen untuk melihat fungsi dan jalurnya dalam engine</p>
+            </div>
+            <div class="flex items-center gap-2.5 text-[11px]">
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-50 border border-sky-200 text-sky-800 font-medium">
+                <span class="w-2 h-2 rounded-full bg-sky-500"></span> API &amp; Web
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-800 font-medium">
+                <span class="w-2 h-2 rounded-full bg-indigo-500"></span> Worker Engine
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> PostgreSQL
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-medium">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span> Solana RPC / Oracle
+              </span>
+            </div>
+          </div>
+
+          <!-- Main 3-Column Architecture Board -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            
+            <!-- Column 1: Presentation & Gateway (3 Cols) -->
+            <div class="lg:col-span-3 space-y-3 flex flex-col">
+              <div class="p-2.5 bg-slate-100/80 rounded-xl border border-slate-200 text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                <span>1. Presentation &amp; Gateway</span>
+                <i class="fa-solid fa-laptop-code text-slate-400"></i>
+              </div>
+
+              <!-- Card: Next.js Web UI -->
+              <div onclick="selectPipelineStep(1)" class="cursor-pointer p-4 rounded-xl bg-slate-50 hover:bg-sky-50/50 border border-slate-200 hover:border-sky-300 transition shadow-xs group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-xs font-bold text-slate-900 group-hover:text-sky-700 flex items-center gap-1.5">
+                    <i class="fa-brands fa-react text-sky-500 text-sm"></i> Next.js 15 Web UI
+                  </span>
+                  <span class="text-[10px] bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded font-mono font-semibold">Port 3000</span>
+                </div>
+                <p class="text-[11px] text-slate-600 leading-relaxed">
+                  Antarmuka analitik: Watchlist table, Unified Activity Feed, dan detail profil trader.
+                </p>
+                <div class="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                  <span>Tailwind CSS</span>
+                  <span class="text-sky-600">Client-Side</span>
+                </div>
+              </div>
+
+              <!-- Connection Arrow (Down) -->
+              <div class="flex items-center justify-center py-0.5 text-slate-400 text-xs">
+                <i class="fa-solid fa-arrow-down-long"></i>
+                <span class="ml-1 text-[10px] font-mono text-slate-500">REST JSON</span>
+              </div>
+
+              <!-- Card: FastAPI Backend Router -->
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 shadow-xs space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-500"></i> FastAPI Routers
+                  </span>
+                  <span class="text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-mono font-semibold">:8000</span>
+                </div>
+                <div class="space-y-1 font-mono text-[10px] text-slate-600 bg-white p-2 rounded border border-slate-200/80">
+                  <div class="text-slate-800 font-semibold">/api/wallet/* (Single)</div>
+                  <div class="text-slate-800 font-semibold">/api/wallets/* (Tracker)</div>
+                  <div class="text-slate-400 mt-1">BackgroundTasks.add_task()</div>
+                </div>
+                <p class="text-[10px] text-slate-500">
+                  Validasi Base58, routing request, dan trigger worker sinkronisasi asinkron.
+                </p>
+              </div>
+
+              <!-- Card: Pydantic Validation -->
+              <div class="p-3 rounded-xl bg-white border border-slate-200 text-[11px] text-slate-600 space-y-1">
+                <div class="font-bold text-slate-800 text-[11px] flex items-center gap-1">
+                  <i class="fa-solid fa-shield-check text-emerald-600"></i> Pydantic Schemas v2
+                </div>
+                <div class="text-[10px] text-slate-500 font-mono">
+                  Regex: ^[1-9A-HJ-NP-za-km-z]{32,44}$
+                </div>
+              </div>
+            </div>
+
+            <!-- Column 2: Worker Engine Pipeline (6 Cols) -->
+            <div class="lg:col-span-6 space-y-3 flex flex-col">
+              <div class="p-2.5 bg-indigo-50/70 rounded-xl border border-indigo-200 text-[11px] font-bold text-indigo-900 uppercase tracking-wider flex items-center justify-between">
+                <span>2. Asynchronous Processing Engine (Worker)</span>
+                <span class="text-[10px] font-mono text-indigo-600 font-normal">workers/sync_worker.py</span>
+              </div>
+
+              <!-- Step 1 & Step 2 (Horizontal Grid) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <!-- Step A: RPC Ingestion -->
+                <div onclick="selectPipelineStep(1)" class="cursor-pointer p-3.5 rounded-xl bg-white hover:bg-sky-50/40 border border-slate-200 hover:border-sky-400 transition shadow-xs group">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-mono font-bold text-sky-700 uppercase">Tahap 01</span>
+                    <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                  </div>
+                  <h4 class="text-xs font-bold text-slate-900 group-hover:text-sky-700">A. Solana RPC Client</h4>
+                  <p class="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Ambil signature &amp; parsed tx dalam batch 25 item dengan backoff 429.
+                  </p>
+                  <div class="mt-2 text-[10px] font-mono text-slate-400">workers/fetcher/solana_client.py</div>
+                </div>
+
+                <!-- Step B: Transfer Parser -->
+                <div onclick="selectPipelineStep(2)" class="cursor-pointer p-3.5 rounded-xl bg-white hover:bg-sky-50/40 border border-slate-200 hover:border-sky-400 transition shadow-xs group">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-mono font-bold text-sky-700 uppercase">Tahap 02</span>
+                    <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                  </div>
+                  <h4 class="text-xs font-bold text-slate-900 group-hover:text-sky-700">B. Transfer Parser</h4>
+                  <p class="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Hitung net delta SOL/SPL &amp; kompensasi gas fee payer (+fee).
+                  </p>
+                  <div class="mt-2 text-[10px] font-mono text-slate-400">workers/parser/transfer_parser.py</div>
+                </div>
+              </div>
+
+              <!-- Pipeline Connector Bar -->
+              <div class="flex items-center justify-center gap-2 py-0.5 text-slate-400 text-xs">
+                <i class="fa-solid fa-arrow-down-long"></i>
+                <span class="text-[10px] font-mono text-slate-500">Data Arus Bersih Terverifikasi</span>
+                <i class="fa-solid fa-arrow-down-long"></i>
+              </div>
+
+              <!-- Step 3 & Step 4 (Horizontal Grid) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <!-- Step C: DEX Swap Detector -->
+                <div onclick="selectPipelineStep(3)" class="cursor-pointer p-3.5 rounded-xl bg-white hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-400 transition shadow-xs group">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-mono font-bold text-indigo-700 uppercase">Tahap 03</span>
+                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                  </div>
+                  <h4 class="text-xs font-bold text-slate-900 group-hover:text-indigo-700">C. DEX Swap Detector</h4>
+                  <p class="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Kenali Raydium, Orca, Jupiter &amp; rekonstruksi arah BUY vs SELL.
+                  </p>
+                  <div class="mt-2 text-[10px] font-mono text-slate-400">workers/parser/swap_detector.py</div>
+                </div>
+
+                <!-- Step D: Position Engine (WACB) -->
+                <div onclick="selectPipelineStep(4)" class="cursor-pointer p-3.5 rounded-xl bg-white hover:bg-indigo-50/40 border border-slate-200 hover:border-indigo-400 transition shadow-xs group">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-mono font-bold text-indigo-700 uppercase">Tahap 04</span>
+                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                  </div>
+                  <h4 class="text-xs font-bold text-slate-900 group-hover:text-indigo-700">D. WACB Position Engine</h4>
+                  <p class="text-[11px] text-slate-500 mt-1 leading-snug">
+                    Hitung Weighted Average Entry, basis modal, dan Realized PnL.
+                  </p>
+                  <div class="mt-2 text-[10px] font-mono text-slate-400">workers/position_engine/</div>
+                </div>
+              </div>
+
+              <!-- Pipeline Connector Bar -->
+              <div class="flex items-center justify-center gap-2 py-0.5 text-slate-400 text-xs">
+                <i class="fa-solid fa-arrow-down-long"></i>
+                <span class="text-[10px] font-mono text-slate-500">Kalkulasi Metrik &amp; Profiling</span>
+                <i class="fa-solid fa-arrow-down-long"></i>
+              </div>
+
+              <!-- Step 5: Full Width Engine Box -->
+              <div onclick="selectPipelineStep(5)" class="cursor-pointer p-4 rounded-xl bg-emerald-50/60 hover:bg-emerald-50 border border-emerald-200 hover:border-emerald-400 transition shadow-xs group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono font-bold text-emerald-800 uppercase">Tahap 05</span>
+                    <h4 class="text-xs font-bold text-slate-900 group-hover:text-emerald-800">E. PnL Engine &amp; Classifier Matrix</h4>
+                  </div>
+                  <span class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                    4-Tier Profiling
+                  </span>
+                </div>
+                <p class="text-[11px] text-slate-600 leading-relaxed">
+                  Hitung Win Rate murni dari posisi closed, median holding duration (bebas bias outlier), dan sematkan lencana profil trader otomatis ke tabel <code class="font-mono bg-white px-1 py-0.5 rounded text-[10px]">wallet_metrics</code>.
+                </p>
+                <div class="mt-2.5 pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[10px] font-mono text-emerald-800">
+                  <span>workers/pnl_engine/pnl_calculator.py</span>
+                  <span class="font-semibold">Performance, Style, Capital, Activity</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Column 3: Storage & External Ecosystem (3 Cols) -->
+            <div class="lg:col-span-3 space-y-3 flex flex-col">
+              <div class="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200 text-[11px] font-bold text-emerald-900 uppercase tracking-wider flex items-center justify-between">
+                <span>3. Data &amp; External Nodes</span>
+                <i class="fa-solid fa-database text-emerald-600"></i>
+              </div>
+
+              <!-- Card: External Solana RPC Node -->
+              <div class="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 shadow-xs space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <i class="fa-solid fa-link text-amber-600"></i> Solana RPC Node
+                  </span>
+                  <span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono font-semibold">Mainnet</span>
+                </div>
+                <p class="text-[11px] text-slate-600">
+                  Helius / QuickNode / Triton. Panggilan batch JSON-RPC untuk signature &amp; parsed transactions.
+                </p>
+              </div>
+
+              <!-- Card: Live Price Oracles -->
+              <div class="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 shadow-xs space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-line text-amber-600"></i> Live Price Oracles
+                  </span>
+                  <span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono font-semibold">Jupiter + DEX</span>
+                </div>
+                <p class="text-[11px] text-slate-600">
+                  Jupiter Price V2 &amp; DexScreener API untuk penilaian live Unrealized PnL posisi OPEN.
+                </p>
+              </div>
+
+              <!-- Card: PostgreSQL Database (7 Core Tables) -->
+              <div onclick="showTableDetails('wallets')" class="cursor-pointer flex-1 p-4 rounded-xl bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-200 hover:border-emerald-400 transition shadow-xs space-y-2 group">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 group-hover:text-emerald-800 flex items-center gap-1.5">
+                    <i class="fa-solid fa-server text-emerald-600"></i> PostgreSQL 14+
+                  </span>
+                  <span class="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-mono font-semibold">AsyncPG</span>
+                </div>
+                <p class="text-[11px] text-slate-600">
+                  Penyimpanan relasional dengan 7 tabel teroptimasi:
+                </p>
+                <div class="space-y-1 font-mono text-[10px] text-slate-700 bg-white/90 p-2.5 rounded-lg border border-emerald-200">
+                  <div class="flex items-center justify-between">
+                    <span>1. wallets</span>
+                    <span class="text-slate-400">Identitas/Tag</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>2. transactions</span>
+                    <span class="text-emerald-700 font-semibold">Raw JSONB</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>3. transfers</span>
+                    <span class="text-slate-400">Net Delta</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>4. trades</span>
+                    <span class="text-indigo-700 font-semibold">BUY/SELL</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>5. positions</span>
+                    <span class="text-slate-400">WACB State</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>6. wallet_metrics</span>
+                    <span class="text-slate-400">Summary &amp; Badge</span>
+                  </div>
+                  <div class="flex items-center justify-between text-rose-700">
+                    <span>7. parser_errors</span>
+                    <span>Audit UNKNOWN</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Architecture Highlight Guide -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-500"></span> 1. Ingestion &amp; Persistensi
+              </span>
+              <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                Raw JSON dari Solana RPC disimpan permanen ke <code class="bg-white px-1 py-0.5 rounded border border-slate-200 text-slate-800 font-mono text-[10px]">transactions.raw_data</code> format JSONB sehingga proses re-parse bebas biaya RPC.
+              </p>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 2. Deterministic Parsing
+              </span>
+              <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                Kompensasi fee payer gas otomatis menetralkan bias saldo SOL. DEX swap diklasifikasikan menjadi BUY/SELL presisi tinggi atau ditandai <code class="text-amber-800 bg-amber-50 px-1 py-0.5 rounded font-mono text-[10px]">UNKNOWN</code> jika anomali.
+              </p>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> 3. Akuntansi &amp; Profiling
+              </span>
+              <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                Engine WACB mengelola posisi terbuka dan tertutup. Median holding duration dan win rate dievaluasi melalui matriks klasifikasi profil trader 4-dimensi.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5 Interactive Pipeline Steps (Tabs) -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <button onclick="selectPipelineStep(1)" id="step-btn-1" class="cursor-pointer p-3.5 rounded-xl border border-sky-600 bg-sky-50 text-left transition">
+            <div class="text-[10px] font-mono text-sky-700 uppercase font-bold">Tahap 01</div>
+            <div class="text-xs font-bold text-slate-900 mt-1">Batch Ingestion</div>
+            <p class="text-[11px] text-slate-600 mt-0.5">Solana JSON-RPC 25 tx</p>
+          </button>
+
+          <button onclick="selectPipelineStep(2)" id="step-btn-2" class="cursor-pointer p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition">
+            <div class="text-[10px] font-mono text-slate-400 uppercase font-bold">Tahap 02</div>
+            <div class="text-xs font-bold text-slate-800 mt-1">Balance Diff</div>
+            <p class="text-[11px] text-slate-500 mt-0.5">Kompensasi fee payer</p>
+          </button>
+
+          <button onclick="selectPipelineStep(3)" id="step-btn-3" class="cursor-pointer p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition">
+            <div class="text-[10px] font-mono text-slate-400 uppercase font-bold">Tahap 03</div>
+            <div class="text-xs font-bold text-slate-800 mt-1">Swap Detector</div>
+            <p class="text-[11px] text-slate-500 mt-0.5">Heuristik BUY &amp; SELL</p>
+          </button>
+
+          <button onclick="selectPipelineStep(4)" id="step-btn-4" class="cursor-pointer p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition">
+            <div class="text-[10px] font-mono text-slate-400 uppercase font-bold">Tahap 04</div>
+            <div class="text-xs font-bold text-slate-800 mt-1">WACB Ledger</div>
+            <p class="text-[11px] text-slate-500 mt-0.5">Avg Entry &amp; Cost Basis</p>
+          </button>
+
+          <button onclick="selectPipelineStep(5)" id="step-btn-5" class="cursor-pointer p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition">
+            <div class="text-[10px] font-mono text-slate-400 uppercase font-bold">Tahap 05</div>
+            <div class="text-xs font-bold text-slate-800 mt-1">Profiling Matrix</div>
+            <p class="text-[11px] text-slate-500 mt-0.5">4 Lencana klasifikasi</p>
+          </button>
+        </div>
+
+        <!-- Step Detail Box -->
+        <div class="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3.5">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <span id="detail-step-badge" class="px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 font-mono text-xs font-semibold">TAHAP 1: RPC BATCH INGESTION</span>
+            <span id="detail-step-file" class="text-xs font-mono text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">workers/fetcher/solana_client.py</span>
+          </div>
+          <h4 id="detail-step-title" class="text-base font-bold text-slate-900">Pengambilan Data Transaksi Skala Besar dengan Batching</h4>
+          <p id="detail-step-desc" class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            Engine memanggil <code class="font-mono bg-slate-100 text-slate-800 px-1 py-0.5 rounded">getSignaturesForAddress</code> untuk mengambil daftar signature, kemudian mengirim batch hingga 25 instruksi secara paralel melalui <code class="font-mono bg-slate-100 text-slate-800 px-1 py-0.5 rounded">getParsedTransactions</code>. Jika node RPC mengembalikan kode 429 (Rate Limit), client melakukan jeda eksponensial (exponential backoff).
+          </p>
+          <div class="p-3.5 bg-slate-900 rounded-xl font-mono text-xs text-slate-100 overflow-x-auto shadow-inner" id="detail-step-code">
+// Cuplikan Pemanggilan JSON-RPC Batch
+client = SolanaClient(rpc_url)
+signatures = await client.get_signatures_for_address(wallet_address, limit=100)
+raw_txs = await client.get_parsed_transactions_batch(signatures[0:25])
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Database Schema & ERD -->
+      <section id="database" class="doc-section space-y-5">
+        <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-database text-sky-600"></i> Desain Skema Basis Data (PostgreSQL)
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Struktur 6 tabel relasional inti yang dioptimasi untuk kecepatan query analitik.</p>
+          </div>
+          <span class="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200">packages/database/models.py</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <!-- Table Selector Buttons -->
+          <div class="space-y-2">
+            <button onclick="showTableDetails('wallets', this)" data-table="wallets" class="table-tab-btn active w-full text-left p-3 rounded-xl bg-white border border-sky-600 shadow-sm text-xs font-bold text-sky-900 flex items-center justify-between transition">
+              <span><i class="fa-solid fa-wallet text-sky-600 mr-2"></i>wallets</span>
+              <span class="text-[11px] font-mono text-slate-500 font-normal">Identitas &amp; Tag</span>
+            </button>
+            <button onclick="showTableDetails('transactions', this)" data-table="transactions" class="table-tab-btn w-full text-left p-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-slate-300 flex items-center justify-between transition">
+              <span><i class="fa-solid fa-file-code text-slate-500 mr-2"></i>transactions</span>
+              <span class="text-[11px] font-mono text-slate-500 font-normal">Arsip Raw JSONB</span>
+            </button>
+            <button onclick="showTableDetails('transfers', this)" data-table="transfers" class="table-tab-btn w-full text-left p-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-slate-300 flex items-center justify-between transition">
+              <span><i class="fa-solid fa-arrow-right-arrow-left text-slate-500 mr-2"></i>transfers</span>
+              <span class="text-[11px] font-mono text-slate-500 font-normal">Mutasi Bersih SOL/SPL</span>
+            </button>
+            <button onclick="showTableDetails('trades', this)" data-table="trades" class="table-tab-btn w-full text-left p-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-slate-300 flex items-center justify-between transition">
+              <span><i class="fa-solid fa-chart-line text-slate-500 mr-2"></i>trades</span>
+              <span class="text-[11px] font-mono text-slate-500 font-normal">Swap BUY/SELL DEX</span>
+            </button>
+            <button onclick="showTableDetails('positions', this)" data-table="positions" class="table-tab-btn w-full text-left p-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-slate-300 flex items-center justify-between transition">
+              <span><i class="fa-solid fa-layer-group text-slate-500 mr-2"></i>positions</span>
+              <span class="text-[11px] font-mono text-slate-500 font-normal">Posisi WACB Terbuka/Tutup</span>
+            </button>
+            <button onclick="showTableDetails('wallet_metrics', this)" data-table="wallet_metrics" class="table-tab-btn w-full text-left p-3 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-slate-300 flex items-center justify-between transition">
+              <span><i class="fa-solid fa-award text-slate-500 mr-2"></i>wallet_metrics</span>
+              <span class="text-[11px] font-mono text-slate-500 font-normal">Agregat &amp; Lencana</span>
+            </button>
+          </div>
+
+          <!-- Table Schema View -->
+          <div class="lg:col-span-2 p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between" id="table-schema-display">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-sm font-bold text-slate-900 font-mono flex items-center gap-2" id="schema-table-name">
+                  Table: wallets
+                </h4>
+                <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-semibold" id="schema-table-badge">Identitas Utama</span>
+              </div>
+              <p class="text-xs text-slate-600 mb-4" id="schema-table-desc">
+                Menyimpan identitas wallet, label kustom yang dapat diedit oleh user, status pemantauan (is_tracked), serta tag kategori.
+              </p>
+
+              <!-- Columns Table -->
+              <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                <table class="w-full text-left text-xs font-mono">
+                  <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                    <tr>
+                      <th class="p-2.5 font-bold">Field</th>
+                      <th class="p-2.5 font-bold">Type</th>
+                      <th class="p-2.5 font-bold">Constraints</th>
+                      <th class="p-2.5 font-bold font-sans">Deskripsi</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 text-slate-700" id="schema-table-body">
+                    <!-- Dynamic content populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-[11px] text-slate-500 font-mono">
+              <span id="schema-table-indexes">Indexes: idx_wallets_address, is_tracked</span>
+              <span>PostgreSQL 14+</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Interactive WACB Position & PnL Calculator -->
+      <section id="simulator" class="doc-section space-y-5">
+        <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-calculator text-sky-600"></i> Simulator Interaktif WACB &amp; PnL
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Uji langsung simulasi matematis akumulasi pembelian bertahap dan penjualan parsial.</p>
+          </div>
+          <span class="text-xs font-mono text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200 font-semibold">Live Formula WACB</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <!-- Controls Panel -->
+          <div class="lg:col-span-5 space-y-3.5">
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-sliders text-sky-600"></i> Parameter Transaksi
+            </h3>
+            
+            <!-- Trade 1 -->
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div class="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                <span>1. Pembelian Awal (BUY 1)</span>
+                <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono">Entry 1</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label class="text-slate-500 text-[10px] font-medium">Jumlah Token (Qty)</label>
+                  <input type="number" id="sim_buy1_qty" value="1000" class="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-800 font-mono text-xs focus:outline-none focus:border-sky-600" oninput="runWACBSimulation()">
+                </div>
+                <div>
+                  <label class="text-slate-500 text-[10px] font-medium">Harga Masuk ($/token)</label>
+                  <input type="number" id="sim_buy1_price" value="1.00" step="0.1" class="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-800 font-mono text-xs focus:outline-none focus:border-sky-600" oninput="runWACBSimulation()">
+                </div>
+              </div>
+            </div>
+
+            <!-- Trade 2 -->
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div class="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                <span>2. Pembelian Kedua (BUY DCA)</span>
+                <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono">Entry 2</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label class="text-slate-500 text-[10px] font-medium">Beli Tambahan (Qty)</label>
+                  <input type="number" id="sim_buy2_qty" value="500" class="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-800 font-mono text-xs focus:outline-none focus:border-sky-600" oninput="runWACBSimulation()">
+                </div>
+                <div>
+                  <label class="text-slate-500 text-[10px] font-medium">Harga DCA ($/token)</label>
+                  <input type="number" id="sim_buy2_price" value="2.00" step="0.1" class="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-800 font-mono text-xs focus:outline-none focus:border-sky-600" oninput="runWACBSimulation()">
+                </div>
+              </div>
+            </div>
+
+            <!-- Trade 3 -->
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div class="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                <span>3. Penjualan Sebagian (SELL)</span>
+                <span class="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded font-mono">Partial Exit</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label class="text-slate-500 text-[10px] font-medium">Jumlah Dijual (Qty)</label>
+                  <input type="number" id="sim_sell_qty" value="600" class="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-800 font-mono text-xs focus:outline-none focus:border-sky-600" oninput="runWACBSimulation()">
+                </div>
+                <div>
+                  <label class="text-slate-500 text-[10px] font-medium">Harga Eksekusi Jual ($)</label>
+                  <input type="number" id="sim_sell_price" value="2.50" step="0.1" class="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-800 font-mono text-xs focus:outline-none focus:border-sky-600" oninput="runWACBSimulation()">
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Market Price -->
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+              <label class="text-slate-700 text-xs font-bold">Harga Pasar Sekarang ($) (Live Oracle)</label>
+              <input type="number" id="sim_current_price" value="3.00" step="0.1" class="w-full bg-white border border-slate-300 rounded p-1.5 text-slate-800 font-mono text-xs focus:outline-none focus:border-sky-600" oninput="runWACBSimulation()">
+              <p class="text-[10px] text-slate-500">Digunakan untuk menghitung valuasi posisi sisa (Unrealized PnL).</p>
+            </div>
+          </div>
+
+          <!-- Calculated Output & Ledger -->
+          <div class="lg:col-span-7 flex flex-col justify-between bg-slate-50 p-5 rounded-xl border border-slate-200">
+            <div>
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                <span class="text-xs font-bold text-slate-800 uppercase font-mono tracking-wider">Hasil Rekonsiliasi Posisi</span>
+                <span id="sim_position_status" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">STATUS: OPEN</span>
+              </div>
+
+              <!-- Output Metric Cards -->
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 my-3.5">
+                <div class="p-3 rounded-lg bg-white border border-slate-200 shadow-xs">
+                  <div class="text-[10px] text-slate-500 font-medium">Weighted Avg Entry</div>
+                  <div class="text-base font-bold text-slate-900 font-mono mt-0.5" id="sim_out_avg_entry">$1.33</div>
+                  <div class="text-[9px] text-slate-400">Harga pokok rata-rata</div>
+                </div>
+                <div class="p-3 rounded-lg bg-white border border-slate-200 shadow-xs">
+                  <div class="text-[10px] text-slate-500 font-medium">Sisa Token</div>
+                  <div class="text-base font-bold text-sky-700 font-mono mt-0.5" id="sim_out_rem_qty">900 tokens</div>
+                  <div class="text-[9px] text-slate-400">Saldo aktif</div>
+                </div>
+                <div class="p-3 rounded-lg bg-white border border-slate-200 shadow-xs">
+                  <div class="text-[10px] text-slate-500 font-medium">Sisa Cost Basis</div>
+                  <div class="text-base font-bold text-slate-900 font-mono mt-0.5" id="sim_out_cost_basis">$1,200.00</div>
+                  <div class="text-[9px] text-slate-400">Modal tertahan</div>
+                </div>
+                <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 shadow-xs">
+                  <div class="text-[10px] text-emerald-800 font-semibold">Realized PnL</div>
+                  <div class="text-base font-bold text-emerald-700 font-mono mt-0.5" id="sim_out_realized_pnl">+$700.00</div>
+                  <div class="text-[10px] text-emerald-600 font-medium" id="sim_out_realized_roi">+87.5% ROI</div>
+                </div>
+                <div class="p-3 rounded-lg bg-sky-50 border border-sky-200 shadow-xs">
+                  <div class="text-[10px] text-sky-800 font-semibold">Unrealized PnL</div>
+                  <div class="text-base font-bold text-sky-700 font-mono mt-0.5" id="sim_out_unrealized_pnl">+$1,500.00</div>
+                  <div class="text-[9px] text-sky-600">Valuasi harga live</div>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-100 border border-slate-300 shadow-xs">
+                  <div class="text-[10px] text-slate-700 font-semibold">Total PnL</div>
+                  <div class="text-base font-bold text-slate-900 font-mono mt-0.5" id="sim_out_total_pnl">+$2,200.00</div>
+                  <div class="text-[9px] text-slate-500">Realized + Unrealized</div>
+                </div>
+              </div>
+
+              <!-- Mathematical Audit Trail -->
+              <div class="p-3 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 space-y-1 font-mono leading-relaxed">
+                <div class="text-slate-900 font-bold mb-1 text-[11px] uppercase tracking-wider">Jejak Kalkulasi Matematis:</div>
+                <div id="sim_step_1">1. Akumulasi Beli: 1,500 token dengan modal total $2,000.00</div>
+                <div id="sim_step_2">2. Average Entry (WACB): $1.3333 / token</div>
+                <div id="sim_step_3">3. Penjualan 600 token melepas modal pokok $800.00 -> Profit Bersih: $700.00</div>
+                <div id="sim_step_4">4. Sisa 900 token dipegang dengan modal pokok tertahan $1,200.00</div>
+              </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+              <span class="font-mono">Formula: workers/position_engine/position_builder.py</span>
+              <button onclick="resetSimulator()" class="text-sky-700 hover:underline font-medium">Reset Nilai Standar</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Rule-Based Trader Classifier -->
+      <section id="classification" class="doc-section space-y-5">
+        <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-tags text-sky-600"></i> Matriks Klasifikasi Trader (Rule Matrix)
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Sistem pelabelan 4-dimensi objektif yang dikonfigurasi melalui JSON terisolasi.</p>
+          </div>
+          <span class="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200">config/classification_thresholds.json</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Dimension 1 -->
+          <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2.5">
+            <div class="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider">
+              <i class="fa-solid fa-trophy text-emerald-600"></i> 1. Performance
+            </div>
+            <div class="space-y-1.5 text-xs">
+              <div class="p-2 rounded-lg bg-emerald-50 border border-emerald-100">
+                <span class="font-bold text-emerald-800">HIGHLY_PROFITABLE</span>
+                <p class="text-slate-600 text-[11px] mt-0.5">ROI ≥ 100% &amp; Win Rate ≥ 60%</p>
+              </div>
+              <div class="p-2 rounded-lg bg-sky-50 border border-sky-100">
+                <span class="font-bold text-sky-800">PROFITABLE</span>
+                <p class="text-slate-600 text-[11px] mt-0.5">ROI ≥ 20% &amp; Win Rate ≥ 50%</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-100 border border-slate-200">
+                <span class="font-bold text-slate-700">BREAK_EVEN</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">-20% ≤ ROI ≤ 20%</p>
+              </div>
+              <div class="p-2 rounded-lg bg-rose-50 border border-rose-100">
+                <span class="font-bold text-rose-800">UNPROFITABLE</span>
+                <p class="text-slate-600 text-[11px] mt-0.5">ROI &lt; -20%</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dimension 2 -->
+          <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2.5">
+            <div class="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider">
+              <i class="fa-solid fa-stopwatch text-sky-600"></i> 2. Trading Style
+            </div>
+            <div class="space-y-1.5 text-xs">
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-800">SCALPER</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">Median Hold ≤ 5 Menit</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-800">SHORT_TERM_TRADER</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">5 Menit &lt; Median Hold ≤ 2 Jam</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-800">SWING_TRADER</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">2 Jam &lt; Median Hold ≤ 3 Hari</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-800">HOLDER</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">Median Hold &gt; 3 Hari</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dimension 3 -->
+          <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2.5">
+            <div class="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider">
+              <i class="fa-solid fa-coins text-amber-600"></i> 3. Capital Tier
+            </div>
+            <div class="space-y-1.5 text-xs">
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-800">MICRO</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">Rata-rata posisi &lt; $100</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-800">SMALL</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">$100 ≤ Rata-rata &lt; $1,000</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-800">MEDIUM / LARGE</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">$1,000 s/d $100,000</p>
+              </div>
+              <div class="p-2 rounded-lg bg-amber-50 border border-amber-200">
+                <span class="font-bold text-amber-800">VERY_LARGE (WHALE)</span>
+                <p class="text-slate-600 text-[11px] mt-0.5">Rata-rata posisi ≥ $100,000</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dimension 4 -->
+          <div class="p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-2.5">
+            <div class="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider">
+              <i class="fa-solid fa-bolt text-indigo-600"></i> 4. Activity Level
+            </div>
+            <div class="space-y-1.5 text-xs">
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-500">INACTIVE</span>
+                <p class="text-slate-400 text-[11px] mt-0.5">0 trade dalam 30 hari</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <span class="font-bold text-slate-700">OCCASIONAL</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">&lt; 1 trade per hari</p>
+              </div>
+              <div class="p-2 rounded-lg bg-emerald-50 border border-emerald-100">
+                <span class="font-bold text-emerald-800">ACTIVE</span>
+                <p class="text-slate-600 text-[11px] mt-0.5">1 s/d 10 trade per hari</p>
+              </div>
+              <div class="p-2 rounded-lg bg-indigo-50 border border-indigo-100">
+                <span class="font-bold text-indigo-800">HIGH_FREQUENCY</span>
+                <p class="text-slate-600 text-[11px] mt-0.5">&gt; 10 trade/hari (Bot / Scalp)</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Interactive REST API Reference -->
+      <section id="api" class="doc-section space-y-5">
+        <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-code text-sky-600"></i> Spesifikasi REST API (FastAPI)
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Dokumentasi kontrak endpoint backend dengan contoh request &amp; respons.</p>
+          </div>
+          <span class="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200">Port :8000</span>
+        </div>
+
+        <!-- Filter API -->
+        <div class="flex gap-2">
+          <button onclick="filterAPI('all', this)" data-api-filter="all" class="api-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white shadow-xs">Semua Endpoint</button>
+          <button onclick="filterAPI('single', this)" data-api-filter="single" class="api-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Single Wallet (/api/wallet/*)</button>
+          <button onclick="filterAPI('multi', this)" data-api-filter="multi" class="api-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Multi-Wallet (/api/wallets/*)</button>
+        </div>
+
+        <div class="space-y-3" id="api-list-container">
+          <!-- API Item 1 -->
+          <div class="api-card single p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleApiDetails('api-1')">
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-200 font-mono">POST</span>
+                <span class="font-mono text-xs sm:text-sm text-slate-900 font-bold">/api/wallet/{address}/sync</span>
+                <span class="text-xs text-slate-500 hidden sm:inline">— Menjadwalkan background worker sinkronisasi</span>
+              </div>
+              <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform" id="icon-api-1"></i>
+            </div>
+            <div id="api-1" class="hidden pt-3 border-t border-slate-100 space-y-2 text-xs">
+              <p class="text-slate-600">Memvalidasi address Solana (Base58), membuat sync job, dan menjalankan background worker ingestion.</p>
+              <div class="grid sm:grid-cols-2 gap-2 font-mono text-[11px]">
+                <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                  <div class="text-slate-500 mb-1">// Request Params</div>
+                  <div class="text-slate-800">address: string (Base58 32-44 karakter)</div>
+                </div>
+                <div class="p-3 rounded-lg bg-slate-900 text-slate-100">
+                  <div class="text-slate-400 mb-1">// Response 202 Accepted</div>
+                  <pre class="text-emerald-400">{"job_id": "b3f07a4a...", "status": "PENDING"}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- API Item 2 -->
+          <div class="api-card single p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleApiDetails('api-2')">
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">GET</span>
+                <span class="font-mono text-xs sm:text-sm text-slate-900 font-bold">/api/wallet/{address}</span>
+                <span class="text-xs text-slate-500 hidden sm:inline">— Ringkasan performa, PnL, lencana &amp; coverage</span>
+              </div>
+              <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform" id="icon-api-2"></i>
+            </div>
+            <div id="api-2" class="hidden pt-3 border-t border-slate-100 space-y-2 text-xs">
+              <p class="text-slate-600">Mengambil ringkasan performa lengkap, win rate, total PnL, 4 badge klasifikasi, dan persentase coverage parsing.</p>
+              <div class="p-3 rounded-lg bg-slate-900 text-slate-100 font-mono text-[11px] overflow-x-auto">
+                <div class="text-slate-400 mb-1">// Response 200 OK</div>
+                <pre class="text-sky-300">{
+  "address": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+  "metrics": {
+    "win_rate": 68.4,
+    "realized_pnl": 12450.50,
+    "unrealized_pnl": 340.20,
+    "median_hold_seconds": 240
+  },
+  "classification": {
+    "performance_tier": "HIGHLY_PROFITABLE",
+    "trading_style": "SCALPER",
+    "capital_tier": "MEDIUM",
+    "activity_level": "ACTIVE"
+  },
+  "coverage": { "coverage_percentage": 98.2 }
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- API Item 3 -->
+          <div class="api-card multi p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleApiDetails('api-3')">
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-200 font-mono">POST</span>
+                <span class="font-mono text-xs sm:text-sm text-slate-900 font-bold">/api/wallets/bulk-import</span>
+                <span class="text-xs text-slate-500 hidden sm:inline">— Impor banyak wallet address serentak</span>
+              </div>
+              <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform" id="icon-api-3"></i>
+            </div>
+            <div id="api-3" class="hidden pt-3 border-t border-slate-100 space-y-2 text-xs">
+              <p class="text-slate-600">Menerima daftar address (1 baris per address), memvalidasi Base58, dan menjadwalkan sync serentak.</p>
+              <div class="p-3 rounded-lg bg-slate-900 text-slate-100 font-mono text-[11px]">
+                <pre class="text-emerald-400">POST /api/wallets/bulk-import
+Payload: { "addresses": ["8kPau1...", "3kP2..."], "default_label": "Whale Alpha" }
+Response: { "imported_count": 2, "invalid_addresses": [] }</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- API Item 4 -->
+          <div class="api-card multi p-4 rounded-xl bg-white border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between cursor-pointer" onclick="toggleApiDetails('api-4')">
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">GET</span>
+                <span class="font-mono text-xs sm:text-sm text-slate-900 font-bold">/api/wallets/tracker/feed</span>
+                <span class="text-xs text-slate-500 hidden sm:inline">— Stream live aktivitas gabungan watchlist</span>
+              </div>
+              <i class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform" id="icon-api-4"></i>
+            </div>
+            <div id="api-4" class="hidden pt-3 border-t border-slate-100 space-y-2 text-xs">
+              <p class="text-slate-600">Menyediakan stream transaksi reverse-chronological dari semua wallet yang berstatus <code class="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono">is_tracked = true</code>.</p>
+              <div class="p-3 rounded-lg bg-slate-900 text-slate-100 font-mono text-[11px]">
+                <pre class="text-sky-300">[
+  {
+    "tx_hash": "3WqN...19f",
+    "wallet_address": "8kPau1...",
+    "side": "BUY",
+    "token_symbol": "BONK",
+    "quote_amount": 2.5,
+    "dex": "Raydium CPMM"
+  }
+]</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Developer Guide & Change Mapping -->
+      <section id="devguide" class="doc-section p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-terminal text-sky-600"></i> Panduan Pengembang (Change Map)
+        </h3>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          Gunakan panduan singkat ini untuk menavigasi kode sumber ketika ingin menambahkan fungsionalitas baru ke dalam sistem:
+        </p>
+        <div class="grid sm:grid-cols-2 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span class="font-bold text-slate-900">Menambah DEX Baru:</span>
+            <p class="text-slate-600 text-[11px] mt-1 font-mono">Daftarkan Program ID di <span class="text-sky-700 font-semibold">workers/parser/swap_detector.py</span></p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span class="font-bold text-slate-900">Mengubah Batas Lencana:</span>
+            <p class="text-slate-600 text-[11px] mt-1 font-mono">Edit aturan ambang di <span class="text-sky-700 font-semibold">config/classification_thresholds.json</span></p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span class="font-bold text-slate-900">Menambah Quote Token:</span>
+            <p class="text-slate-600 text-[11px] mt-1 font-mono">Daftarkan mint address di <span class="text-sky-700 font-semibold">workers/parser/swap_detector.py</span></p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span class="font-bold text-slate-900">Menjalankan Pengujian:</span>
+            <p class="text-slate-600 text-[11px] mt-1 font-mono">Jalankan perintah <span class="text-emerald-700 font-bold">pytest</span> pada root proyek</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    /* 1. Pipeline Steps Data */
+    const pipelineData = {
+      1: {
+        badge: "TAHAP 1: RPC BATCH INGESTION",
+        file: "workers/fetcher/solana_client.py",
+        title: "Pengambilan Data Transaksi Skala Besar dengan Batching",
+        desc: "Engine memanggil getSignaturesForAddress untuk mengambil daftar signature, kemudian mengirim batch hingga 25 instruksi secara paralel melalui getParsedTransactions. Jika node RPC mengembalikan kode 429 (Rate Limit), client melakukan jeda eksponensial (exponential backoff).",
+        code: `// Cuplikan Pemanggilan JSON-RPC Batch\nclient = SolanaClient(rpc_url)\nsignatures = await client.get_signatures_for_address(wallet_address, limit=100)\nraw_txs = await client.get_parsed_transactions_batch(signatures[0:25])`
+      },
+      2: {
+        badge: "TAHAP 2: TRANSFER PARSING & FEE COMPENSATION",
+        file: "workers/parser/transfer_parser.py",
+        title: "Normalisasi Saldo & Kompensasi Fee Payer",
+        desc: "Membandingkan preBalances vs postBalances untuk native SOL dan token balances untuk SPL. Jika target wallet bertindak sebagai fee payer (accountKeys[0]), fee jaringan otomatis ditambahkan kembali agar transaksi murni tidak bias.",
+        code: `// Kompensasi Fee Gas\nnet_sol = (post_balance - pre_balance) / 1e9\nif wallet_is_fee_payer:\n    net_sol = net_sol + (tx_fee / 1e9)  // Nilai perdagangan dinetralkan`
+      },
+      3: {
+        badge: "TAHAP 3: SWAP DETECTOR & TRADE RECONSTRUCTION",
+        file: "workers/parser/swap_detector.py",
+        title: "Identifikasi DEX & Rekonstruksi BUY / SELL",
+        desc: "Memeriksa program ID swap (Raydium V4/CPMM/CLMM, Orca, Jupiter, Pump.fun). Menentukan arah perdagangan: Quote OUT + Base IN = BUY; Base OUT + Quote IN = SELL. Mutasi sepihak dicatat sebagai TRANSFER biasa.",
+        code: `// Heuristik Swap DEX\nif quote_direction == 'OUT' and token_direction == 'IN':\n    trade_side = 'BUY'\nelif token_direction == 'OUT' and quote_direction == 'IN':\n    trade_side = 'SELL'`
+      },
+      4: {
+        badge: "TAHAP 4: POSITION ENGINE (WACB ACCOUNTING)",
+        file: "workers/position_engine/position_builder.py",
+        title: "Kalkulasi Weighted Average Cost Basis",
+        desc: "Mengupdate average entry price saat akumulasi beli, dan menghitung realized PnL saat penjualan bertahap. Jika sisa kuantitas di bawah ambang debu (< 0.0000001), posisi ditandai CLOSED.",
+        code: `// Akuntansi Penjualan Parsial WACB\ncost_basis_sold = current_avg_entry * qty_sold\nrealized_pnl = quote_received - cost_basis_sold\nrem_cost_basis = current_cost_basis - cost_basis_sold`
+      },
+      5: {
+        badge: "TAHAP 5: PNL ENGINE & CLASSIFICATION BADGES",
+        file: "workers/pnl_engine/pnl_calculator.py",
+        title: "Valuasi Oracle & Pemetaan Lencana Trader",
+        desc: "Mengambil harga pasar live dari Jupiter V2 API (fallback ke DexScreener). Menghitung Win Rate murni dari posisi closed, median holding time, dan melabeli profil 4-dimensi.",
+        code: `// Evaluasi Aturan Lencana Profil\nwin_rate = (winning_closed_trades / total_closed_trades) * 100\nmedian_hold = statistics.median(hold_durations_seconds)\nbadges = evaluate_rules(roi, win_rate, median_hold, avg_pos_size)`
+      }
+    };
+
+    function selectPipelineStep(step) {
+      for (let i = 1; i <= 5; i++) {
+        const btn = document.getElementById(`step-btn-${i}`);
+        if (i === step) {
+          btn.className = "cursor-pointer p-3.5 rounded-xl border border-sky-600 bg-sky-50 text-left transition shadow-xs";
+          btn.children[0].className = "text-[10px] font-mono text-sky-700 uppercase font-bold";
+        } else {
+          btn.className = "cursor-pointer p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-left transition";
+          btn.children[0].className = "text-[10px] font-mono text-slate-400 uppercase font-bold";
+        }
+      }
+
+      const data = pipelineData[step];
+      document.getElementById('detail-step-badge').textContent = data.badge;
+      document.getElementById('detail-step-file').textContent = data.file;
+      document.getElementById('detail-step-title').textContent = data.title;
+      document.getElementById('detail-step-desc').textContent = data.desc;
+      document.getElementById('detail-step-code').textContent = data.code;
+    }
+
+    /* 2. Database Schema Display */
+    const tableSchemas = {
+      wallets: {
+        name: "Table: wallets",
+        badge: "Identitas Utama",
+        desc: "Menyimpan identitas wallet address, label profil kustom, tag kategori, status pemantauan aktif, serta waktu aktivitas pertama dan terakhir.",
+        indexes: "PK: id, UK: address, IDX: is_tracked",
+        cols: [
+          ["id", "UUID", "PK, Not Null", "Pengenal unik record wallet"],
+          ["address", "TEXT", "UNIQUE, Not Null", "Solana Base58 public address"],
+          ["chain", "TEXT", "Default 'solana'", "Identifikasi jaringan blockchain"],
+          ["label", "TEXT", "Nullable", "Nama/label kustom pengguna"],
+          ["is_tracked", "BOOLEAN", "Default true", "Status aktif pemantauan watchlist"],
+          ["tags", "TEXT[]", "Nullable", "Daftar tag kategori (Whale, Scalper, etc)"],
+          ["last_seen_at", "TIMESTAMP", "Nullable", "Waktu transaksi on-chain terbaru"]
+        ]
+      },
+      transactions: {
+        name: "Table: transactions",
+        badge: "Arsip Mentah",
+        desc: "Penyimpanan arsip data on-chain mentah (raw_data JSONB). Menjamin transaksi historis dapat di-parse ulang tanpa memanggil RPC kembali.",
+        indexes: "PK: id, UK: tx_hash, IDX: (wallet_address, block_time DESC)",
+        cols: [
+          ["id", "UUID", "PK, Not Null", "Unique identifier record transaksi"],
+          ["tx_hash", "TEXT", "UNIQUE, Not Null", "Signature transaksi Solana"],
+          ["wallet_address", "TEXT", "FK -> wallets.address", "Pemilik dompet yang dipantau"],
+          ["block_time", "TIMESTAMP", "Not Null", "Waktu pencatatan di block"],
+          ["success", "BOOLEAN", "Not Null", "Status sukses/gagal di blockchain"],
+          ["raw_data", "JSONB", "Not Null", "Payload parsed transaction lengkap"]
+        ]
+      },
+      transfers: {
+        name: "Table: transfers",
+        badge: "Selisih Saldo",
+        desc: "Hasil kalkulasi selisih saldo bersih per aset dalam transaksi tunggal, lengkap dengan kompensasi fee gas.",
+        indexes: "PK: id, FK: tx_id, IDX: (wallet_address, timestamp DESC)",
+        cols: [
+          ["id", "UUID", "PK, Not Null", "ID mutasi transfer"],
+          ["tx_id", "UUID", "FK -> transactions.id", "Relasi ke transaksi induk"],
+          ["wallet_address", "TEXT", "Not Null", "Address pemilik mutasi"],
+          ["token_address", "TEXT", "Not Null", "Mint address token / SOL native"],
+          ["direction", "TEXT", "IN | OUT", "Arah perpindahan aset"],
+          ["amount", "NUMERIC(36,18)", "Not Null", "Jumlah nominal token ditransfer"]
+        ]
+      },
+      trades: {
+        name: "Table: trades",
+        badge: "Swap DEX",
+        desc: "Hasil rekonstruksi swap DEX yang sudah divalidasi. Menyimpan harga eksekusi, volume kuotasi (SOL/USDC), dan DEX yang digunakan.",
+        indexes: "PK: id, FK: wallet_id, token_id, UK: (tx_hash, wallet_id, token_id, side)",
+        cols: [
+          ["id", "UUID", "PK, Not Null", "Trade event ID"],
+          ["wallet_id", "UUID", "FK -> wallets.id", "Relasi dompet"],
+          ["token_id", "UUID", "FK -> tokens.id", "Relasi token yang diperdagangkan"],
+          ["side", "TEXT", "BUY | SELL", "Arah perdagangan"],
+          ["token_amount", "NUMERIC(36,18)", "Not Null", "Volume koin dasar"],
+          ["quote_amount", "NUMERIC(36,18)", "Not Null", "Volume kuotasi SOL/USD"],
+          ["dex", "TEXT", "Nullable", "Nama DEX (Raydium, Orca, Pump.fun)"]
+        ]
+      },
+      positions: {
+        name: "Table: positions",
+        badge: "Posisi WACB",
+        desc: "Posisi kepemilikan aset berbasis WACB. Menyimpan harga rata-rata masuk (Avg Entry), total basis biaya, dan status OPEN/CLOSED.",
+        indexes: "PK: id, FK: wallet_id, token_id, IDX: (wallet_id, status)",
+        cols: [
+          ["id", "UUID", "PK, Not Null", "ID catatan posisi"],
+          ["quantity", "NUMERIC(36,18)", "Not Null", "Sisa saldo token yang dipegang"],
+          ["avg_entry_price", "NUMERIC(36,18)", "Not Null", "Harga masuk rata-rata (WACB)"],
+          ["total_cost_basis", "NUMERIC(36,18)", "Not Null", "Total modal tertanam aktif"],
+          ["realized_pnl", "NUMERIC(36,18)", "Default 0", "Laba bersih yang sudah terealisasi"],
+          ["status", "TEXT", "OPEN | CLOSED", "Status posisi saat ini"]
+        ]
+      },
+      wallet_metrics: {
+        name: "Table: wallet_metrics",
+        badge: "Agregat Profil",
+        desc: "Tabel agregasi performa komprehensif. Berisi Win Rate, Realized PnL, Median Holding Time, dan 4 lencana klasifikasi otomatis.",
+        indexes: "PK, FK: wallet_id (1-to-1 dengan wallets)",
+        cols: [
+          ["wallet_id", "UUID", "PK, FK -> wallets.id", "Relasi identitas dompet"],
+          ["win_rate", "NUMERIC(5,2)", "Nullable", "Persentase kemenangan posisi ditutup"],
+          ["realized_pnl", "NUMERIC(20,4)", "Nullable", "Total keuntungan/kerugian (USD)"],
+          ["median_hold_seconds", "BIGINT", "Nullable", "Median durasi simpan posisi"],
+          ["performance_tier", "TEXT", "Nullable", "Lencana performa (PROFITABLE, etc)"],
+          ["trading_style", "TEXT", "Nullable", "Lencana gaya (SCALPER, HOLDER, etc)"]
+        ]
+      }
+    };
+
+    function showTableDetails(tableName, targetBtn = null) {
+      document.querySelectorAll('.table-tab-btn').forEach(btn => {
+        btn.classList.remove('active', 'border-sky-600', 'bg-white', 'text-sky-900', 'shadow-sm');
+        btn.classList.add('border-slate-200', 'text-slate-700');
+      });
+
+      const activeBtn = targetBtn || document.querySelector(`[data-table="${tableName}"]`) || document.querySelector('.table-tab-btn');
+      if (activeBtn) {
+        activeBtn.classList.add('active', 'border-sky-600', 'text-sky-900', 'shadow-sm');
+        activeBtn.classList.remove('border-slate-200', 'text-slate-700');
+      }
+
+      const data = tableSchemas[tableName];
+      if (!data) return;
+
+      document.getElementById('schema-table-name').textContent = data.name;
+      document.getElementById('schema-table-badge').textContent = data.badge;
+      document.getElementById('schema-table-desc').textContent = data.desc;
+      document.getElementById('schema-table-indexes').textContent = `Indeks Konfigurasi: ${data.indexes}`;
+
+      const tbody = document.getElementById('schema-table-body');
+      tbody.innerHTML = '';
+      data.cols.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="p-2.5 font-bold text-slate-900">${c[0]}</td>
+          <td class="p-2.5 text-sky-700 font-semibold">${c[1]}</td>
+          <td class="p-2.5 text-slate-500">${c[2]}</td>
+          <td class="p-2.5 text-slate-700 font-sans">${c[3]}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Initialize first table on load safely
+    showTableDetails('wallets');
+
+    /* 3. Interactive WACB Simulator Logic */
+    function runWACBSimulation() {
+      const b1_qty = parseFloat(document.getElementById('sim_buy1_qty').value) || 0;
+      const b1_price = parseFloat(document.getElementById('sim_buy1_price').value) || 0;
+      const b2_qty = parseFloat(document.getElementById('sim_buy2_qty').value) || 0;
+      const b2_price = parseFloat(document.getElementById('sim_buy2_price').value) || 0;
+      const s_qty = parseFloat(document.getElementById('sim_sell_qty').value) || 0;
+      const s_price = parseFloat(document.getElementById('sim_sell_price').value) || 0;
+      const current_price = parseFloat(document.getElementById('sim_current_price').value) || 0;
+
+      // Accumulation (WACB)
+      const cost1 = b1_qty * b1_price;
+      const cost2 = b2_qty * b2_price;
+      const total_accum_qty = b1_qty + b2_qty;
+      const total_accum_cost = cost1 + cost2;
+
+      let avg_entry = total_accum_qty > 0 ? (total_accum_cost / total_accum_qty) : 0;
+
+      // Partial Exit (SELL)
+      const cost_basis_sold = s_qty * avg_entry;
+      const quote_received = s_qty * s_price;
+      const realized_pnl = quote_received - cost_basis_sold;
+      const realized_roi = cost_basis_sold > 0 ? (realized_pnl / cost_basis_sold) * 100 : 0;
+
+      // Remaining Position
+      let remaining_qty = total_accum_qty - s_qty;
+      let remaining_cost_basis = total_accum_cost - cost_basis_sold;
+
+      // Dust Threshold Handling
+      let status = "OPEN";
+      if (remaining_qty <= 0.0000001) {
+        remaining_qty = 0;
+        remaining_cost_basis = 0;
+        status = "CLOSED";
+      }
+
+      // Unrealized PnL Valuation
+      const current_market_val = remaining_qty * current_price;
+      const unrealized_pnl = current_market_val - remaining_cost_basis;
+      const total_pnl = realized_pnl + unrealized_pnl;
+
+      // Update UI elements
+      document.getElementById('sim_out_avg_entry').textContent = `$${avg_entry.toFixed(4)}`;
+      document.getElementById('sim_out_rem_qty').textContent = `${remaining_qty.toLocaleString()} tokens`;
+      document.getElementById('sim_out_cost_basis').textContent = `$${remaining_cost_basis.toFixed(2)}`;
+      
+      const realPnlEl = document.getElementById('sim_out_realized_pnl');
+      realPnlEl.textContent = (realized_pnl >= 0 ? "+$" : "-$") + Math.abs(realized_pnl).toFixed(2);
+      realPnlEl.className = realized_pnl >= 0 ? "text-base font-bold text-emerald-700 font-mono mt-0.5" : "text-base font-bold text-rose-700 font-mono mt-0.5";
+      document.getElementById('sim_out_realized_roi').textContent = `${realized_roi >= 0 ? "+" : ""}${realized_roi.toFixed(1)}% ROI`;
+
+      const unrealPnlEl = document.getElementById('sim_out_unrealized_pnl');
+      unrealPnlEl.textContent = (unrealized_pnl >= 0 ? "+$" : "-$") + Math.abs(unrealized_pnl).toFixed(2);
+      unrealPnlEl.className = unrealized_pnl >= 0 ? "text-base font-bold text-sky-700 font-mono mt-0.5" : "text-base font-bold text-rose-700 font-mono mt-0.5";
+
+      const totPnlEl = document.getElementById('sim_out_total_pnl');
+      totPnlEl.textContent = (total_pnl >= 0 ? "+$" : "-$") + Math.abs(total_pnl).toFixed(2);
+      totPnlEl.className = total_pnl >= 0 ? "text-base font-bold text-slate-900 font-mono mt-0.5" : "text-base font-bold text-rose-700 font-mono mt-0.5";
+
+      const statusBadge = document.getElementById('sim_position_status');
+      statusBadge.textContent = `STATUS: ${status}`;
+      statusBadge.className = status === 'OPEN' 
+        ? "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"
+        : "px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300";
+
+      // Explanations
+      document.getElementById('sim_step_1').textContent = `1. Akumulasi Beli: ${total_accum_qty.toLocaleString()} token dengan modal total $${total_accum_cost.toFixed(2)}`;
+      document.getElementById('sim_step_2').textContent = `2. Average Entry (WACB): $${avg_entry.toFixed(4)} / token`;
+      document.getElementById('sim_step_3').textContent = `3. Menjual ${s_qty.toLocaleString()} token @ $${s_price.toFixed(2)} (Modal keluar: $${cost_basis_sold.toFixed(2)}) -> Profit: $${realized_pnl.toFixed(2)}`;
+      document.getElementById('sim_step_4').textContent = `4. Sisa ${remaining_qty.toLocaleString()} token tersisa dengan modal pokok tertahan $${remaining_cost_basis.toFixed(2)}`;
+    }
+
+    function resetSimulator() {
+      document.getElementById('sim_buy1_qty').value = 1000;
+      document.getElementById('sim_buy1_price').value = 1.00;
+      document.getElementById('sim_buy2_qty').value = 500;
+      document.getElementById('sim_buy2_price').value = 2.00;
+      document.getElementById('sim_sell_qty').value = 600;
+      document.getElementById('sim_sell_price').value = 2.50;
+      document.getElementById('sim_current_price').value = 3.00;
+      runWACBSimulation();
+    }
+
+    // Run once on load
+    runWACBSimulation();
+
+    /* 4. API Details Toggle & Filter */
+    function toggleApiDetails(id) {
+      const box = document.getElementById(id);
+      const icon = document.getElementById(`icon-${id}`);
+      if (box.classList.contains('hidden')) {
+        box.classList.remove('hidden');
+        icon.classList.add('rotate-180');
+      } else {
+        box.classList.add('hidden');
+        icon.classList.remove('rotate-180');
+      }
+    }
+
+    function filterAPI(filter, targetBtn = null) {
+      document.querySelectorAll('.api-filter-btn').forEach(btn => {
+        btn.classList.remove('bg-slate-900', 'text-white', 'shadow-xs');
+        btn.classList.add('bg-white', 'border', 'border-slate-200', 'text-slate-700');
+      });
+
+      const activeBtn = targetBtn || document.querySelector(`[data-api-filter="${filter}"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('bg-slate-900', 'text-white', 'shadow-xs');
+        activeBtn.classList.remove('bg-white', 'border', 'border-slate-200', 'text-slate-700');
+      }
+
+      document.querySelectorAll('.api-card').forEach(card => {
+        if (filter === 'all') {
+          card.style.display = 'block';
+        } else if (filter === 'single') {
+          card.style.display = card.classList.contains('single') ? 'block' : 'none';
+        } else if (filter === 'multi') {
+          card.style.display = card.classList.contains('multi') ? 'block' : 'none';
+        }
+      });
+    }
+
+    /* 5. Global Search Filter */
+    function searchContent() {
+      const q = document.getElementById('globalSearch').value.toLowerCase();
+      document.querySelectorAll('.doc-section').forEach(section => {
+        const text = section.textContent.toLowerCase();
+        if (text.includes(q)) {
+          section.style.display = 'block';
+        } else {
+          section.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

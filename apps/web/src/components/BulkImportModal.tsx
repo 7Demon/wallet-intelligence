@@ -25,14 +25,14 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: Props) {
     setError(null);
     setResult(null);
 
-    // Parse addresses from textarea (split by newlines, commas, or spaces)
+    // Parse lines: preserve custom names per line (e.g. "address, Custom Name" or "address | Custom Name")
     const rawList = inputText
-      .split(/[\r\n, ]+/)
+      .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean);
 
     if (rawList.length === 0) {
-      setError("Please paste at least one Solana wallet address.");
+      setError("Masukkan setidaknya satu alamat wallet Solana.");
       return;
     }
 
@@ -63,8 +63,8 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: Props) {
               <Upload className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white font-mono">Bulk Import Wallets</h2>
-              <p className="text-xs text-slate-400">Import &amp; track multiple Solana trader addresses</p>
+              <h2 className="text-base font-bold text-white font-mono">Import &amp; Beri Nama Wallet</h2>
+              <p className="text-xs text-slate-400">Track wallet Solana dan kelompokkan dengan nama/tag kustom</p>
             </div>
           </div>
           <button
@@ -78,32 +78,37 @@ export function BulkImportModal({ isOpen, onClose, onSuccess }: Props) {
         {/* Form */}
         <form onSubmit={handleImport} className="space-y-4">
           <div>
-            <label className="block text-xs font-mono text-slate-300 mb-1">
-              Wallet Addresses (one per line or comma-separated):
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-mono text-slate-300">
+                Alamat Wallet (Satu per baris):
+              </label>
+              <span className="text-[10px] text-cyan-400 font-mono">
+                Bisa pakai format: <code className="bg-slate-800 px-1 rounded text-slate-200">Alamat, Nama</code>
+              </span>
+            </div>
             <textarea
               rows={5}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={`7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU\n5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1\n...`}
+              placeholder={`Contoh tanpa nama:\n7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU\n\nContoh dengan nama langsung:\n4CcYMohSa8YKJfHn2UhyR2fVXyt8zoU6xAK63mZ3Lc7y, Whale Scalper\nDN7HENoqJw9V983rmzBkx836RS5MbVB6EgazVciPgnXV, Top Memecoin Trader`}
               className="w-full bg-slate-900/90 border border-slate-800 rounded-lg p-3 text-xs font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-purple-500/60"
             />
           </div>
 
           <div>
             <label className="block text-xs font-mono text-slate-300 mb-1 flex items-center justify-between">
-              <span>Group Tag / Folder Name (Optional):</span>
-              <span className="text-[10px] text-cyan-400">Pengelompokan Wallet</span>
+              <span>Nama / Tag Grup Default (Opsional):</span>
+              <span className="text-[10px] text-cyan-400">Diterapkan jika baris tidak punya nama</span>
             </label>
             <input
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Smart Money, KOL Tracker, Insider Whale"
+              placeholder="e.g. Smart Money, KOL Tracker, Whale Alpha"
               className="w-full bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-purple-500/60"
             />
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              <span className="text-[10px] text-slate-500 font-mono">Preset Grup:</span>
+              <span className="text-[10px] text-slate-500 font-mono">Preset Cepat:</span>
               {["Smart Money", "KOL / Callers", "Insider Whale", "Alpha Snipers"].map((preset) => (
                 <button
                   key={preset}

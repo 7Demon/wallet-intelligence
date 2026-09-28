@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Radio, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ExternalLink, Radio, ArrowUpRight, ArrowDownRight, Copy, Check } from "lucide-react";
 import { getTrackerFeed, TrackerFeedItem } from "@/lib/api";
 import { shortenAddress } from "@/lib/utils";
 
@@ -10,6 +10,15 @@ export function TrackerFeed() {
   const [feed, setFeed] = useState<TrackerFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  const handleCopyToken = (e: React.MouseEvent, tokAddr: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    navigator.clipboard.writeText(tokAddr);
+    setCopiedToken(tokAddr);
+    setTimeout(() => setCopiedToken(null), 2000);
+  };
 
   const loadFeed = async () => {
     try {
@@ -90,12 +99,25 @@ export function TrackerFeed() {
                     >
                       {item.side}
                     </span>
-                    <span className="font-semibold text-slate-100">
-                      {item.token_symbol || shortenAddress(item.token_address)}
+                    <span className="font-bold text-xs px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">
+                      ${item.token_symbol || "UNKNOWN"}
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                    <span>{item.quote_amount.toFixed(4)} SOL</span>
+                    <span className="font-mono text-slate-500 text-[10px]">{shortenAddress(item.token_address)}</span>
+                    <button
+                      onClick={(e) => handleCopyToken(e, item.token_address)}
+                      className="p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                      title="Salin Alamat Token"
+                    >
+                      {copiedToken === item.token_address ? (
+                        <Check className="w-2.5 h-2.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-2.5 h-2.5" />
+                      )}
+                    </button>
+                    <span>·</span>
+                    <span className="font-semibold text-slate-300">{item.quote_amount.toFixed(4)} SOL</span>
                     <span>·</span>
                     <span>{item.dex || "DEX"}</span>
                   </div>

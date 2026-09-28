@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from workers.fetcher.price_oracle import fetch_token_prices
+from workers.fetcher.price_oracle import fetch_token_prices, fetch_token_metadata_and_prices
 
 from apps.api.schemas.wallet import (
     ClassificationResponse,
@@ -178,6 +178,9 @@ async def get_wallet_overview(
     return WalletOverviewResponse(
         address=wallet.address,
         chain=wallet.chain,
+        label=wallet.label,
+        is_tracked=wallet.is_tracked,
+        tags=wallet.tags or [],
         first_seen_at=wallet.first_seen_at,
         last_active_at=wallet.last_seen_at,
         metrics=metrics_resp,
@@ -315,13 +318,20 @@ async def refresh_wallet_open_positions_price(
         return {"updated_positions": 0, "unrealized_pnl": 0.0}
 
     mints = [p.token.address for p in open_positions if p.token and p.token.address]
-    prices = await fetch_token_prices(mints)
+    meta_results = await fetch_token_metadata_and_prices(mints)
 
     total_unrealized = Decimal("0")
     updated_count = 0
     for p in open_positions:
-        if p.token and p.token.address in prices:
-            cur_price = prices[p.token.address]
+        if p.token and p.token.address in meta_results:
+            info = meta_results[p.token.address]
+            cur_price = info.get("price", Decimal("0"))
+            # Update token symbol & name if missing
+            if not p.token.symbol and info.get("symbol"):
+                p.token.symbol = info["symbol"]
+            if not p.token.name and info.get("name"):
+                p.token.name = info["name"]
+
             if cur_price > Decimal("0"):
                 market_val = p.quantity * cur_price
                 p.unrealized_pnl = market_val - (p.total_cost_basis or Decimal("0"))

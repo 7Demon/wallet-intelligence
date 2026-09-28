@@ -84,3 +84,49 @@ async def test_bulk_import_and_list():
             assert ov_res.status_code == 200
             assert ov_res.json()["total_tracked_wallets"] >= 2
     print("[OK] Bulk import, list, and tracker overview endpoints passed.")
+
+
+@pytest.mark.asyncio
+async def test_dormant_and_bulk_actions():
+    transport = httpx.ASGITransport(app=app)
+    with patch("apps.api.routers.tracker.sync_wallet_history", new_callable=AsyncMock) as mock_sync:
+        mock_sync.return_value = {"status": "COMPLETED"}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            # 1. Dormant summary
+            summary_res = await ac.get("/api/wallets/dormant/summary")
+            assert summary_res.status_code == 200
+            s_data = summary_res.json()
+            assert "dormant_count" in s_data
+            assert "total_tracked" in s_data
+            assert "dormant_addresses" in s_data
+
+            # 2. Bulk sync
+            sync_res = await ac.post(
+                "/api/wallets/bulk-sync",
+                json={"addresses": ["7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"]},
+            )
+            assert sync_res.status_code == 202
+            assert sync_res.json()["queued_count"] == 1
+
+            # 3. Filter by activity_status
+            act_res = await ac.get("/api/wallets?activity_status=active")
+            assert act_res.status_code == 200
+            assert "items" in act_res.json()
+
+            dorm_res = await ac.get("/api/wallets?activity_status=dormant")
+            assert dorm_res.status_code == 200
+            assert "items" in dorm_res.json()
+
+            # 4. Bulk untrack
+            untrack_res = await ac.post(
+                "/api/wallets/bulk-untrack",
+                json={"addresses": ["7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"]},
+            )
+            assert untrack_res.status_code == 200
+            assert untrack_res.json()["status"] == "ok"
+
+            # 5. Dormant cleanup
+            cleanup_res = await ac.post("/api/wallets/dormant/cleanup")
+            assert cleanup_res.status_code == 200
+            assert "untracked_count" in cleanup_res.json()
+    print("[OK] Dormant summary, cleanup, bulk-sync, bulk-untrack passed.")

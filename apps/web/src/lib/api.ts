@@ -3,6 +3,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export interface WalletOverview {
   address: string;
   chain: string;
+  label?: string | null;
+  is_tracked?: boolean;
+  tags?: string[];
   first_seen_at: string | null;
   last_active_at: string | null;
   metrics: {
@@ -123,6 +126,8 @@ export interface TrackedWalletItem {
   last_seen_at?: string | null;
   is_tracked: boolean;
   sync_status: string;
+  is_dormant?: boolean;
+  days_inactive?: number | null;
   trade_count: number;
   winning_trades: number;
   losing_trades: number;
@@ -277,6 +282,7 @@ export async function getTrackedWallets(params: {
   search?: string;
   tier?: string;
   category?: string;
+  activity_status?: "all" | "active" | "dormant";
   timeframe?: string;
   sort_by?: string;
   order?: string;
@@ -287,6 +293,7 @@ export async function getTrackedWallets(params: {
   if (params.search) url.searchParams.set("search", params.search);
   if (params.tier) url.searchParams.set("tier", params.tier);
   if (params.category) url.searchParams.set("category", params.category);
+  if (params.activity_status) url.searchParams.set("activity_status", params.activity_status);
   if (params.timeframe) url.searchParams.set("timeframe", params.timeframe);
   if (params.sort_by) url.searchParams.set("sort_by", params.sort_by);
   if (params.order) url.searchParams.set("order", params.order);
@@ -332,6 +339,51 @@ export async function untrackWallet(address: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("Failed to remove wallet from tracking");
+}
+
+export interface DormantSummaryResponse {
+  dormant_count: number;
+  total_tracked: number;
+  dormant_addresses: string[];
+}
+
+export interface DormantCleanupResponse {
+  untracked_count: number;
+  message: string;
+}
+
+export async function getDormantSummary(): Promise<DormantSummaryResponse> {
+  const res = await fetch(`${API_BASE}/api/wallets/dormant/summary`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to fetch dormant summary");
+  return res.json();
+}
+
+export async function cleanupDormantWallets(): Promise<DormantCleanupResponse> {
+  const res = await fetch(`${API_BASE}/api/wallets/dormant/cleanup`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to clean up dormant wallets");
+  return res.json();
+}
+
+export async function bulkSyncWallets(addresses: string[]): Promise<{ status: string; queued_count: number; message: string }> {
+  const res = await fetch(`${API_BASE}/api/wallets/bulk-sync`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ addresses }),
+  });
+  if (!res.ok) throw new Error("Failed to bulk sync wallets");
+  return res.json();
+}
+
+export async function bulkUntrackWallets(addresses: string[]): Promise<{ status: string; untracked_count: number; message: string }> {
+  const res = await fetch(`${API_BASE}/api/wallets/bulk-untrack`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ addresses }),
+  });
+  if (!res.ok) throw new Error("Failed to bulk untrack wallets");
+  return res.json();
 }
 
 export async function getTrackerOverview(timeframe?: string): Promise<TrackerOverview> {

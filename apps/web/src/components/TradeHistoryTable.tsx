@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ExternalLink, ChevronLeft, ChevronRight, Search, Copy, Check } from "lucide-react";
 import { getWalletTrades, TradeItem } from "@/lib/api";
 import { shortenAddress } from "@/lib/utils";
 
@@ -16,6 +16,13 @@ export function TradeHistoryTable({ address }: Props) {
   const [totalPages, setTotalPages] = useState(1);
   const [sideFilter, setSideFilter] = useState<string>("");
   const [tokenSearch, setTokenSearch] = useState("");
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  const handleCopyToken = (tokAddr: string) => {
+    navigator.clipboard.writeText(tokAddr);
+    setCopiedToken(tokAddr);
+    setTimeout(() => setCopiedToken(null), 2000);
+  };
 
   const loadTrades = async () => {
     try {
@@ -148,15 +155,35 @@ export function TradeHistoryTable({ address }: Props) {
                       {t.side}
                     </span>
                   </td>
-                  <td className="py-3 px-4">
-                    <span className="font-semibold text-slate-200">
-                      {t.token_symbol || shortenAddress(t.token_address)}
-                    </span>
-                    {t.token_symbol && (
-                      <span className="block text-[10px] text-slate-500">
-                        {shortenAddress(t.token_address)}
+                  <td className="py-3 px-4 space-y-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-xs px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">
+                        ${t.token_symbol || "UNKNOWN"}
                       </span>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                      <span className="font-mono text-slate-500">{shortenAddress(t.token_address)}</span>
+                      <button
+                        onClick={() => handleCopyToken(t.token_address)}
+                        className="p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                        title="Salin Alamat Token"
+                      >
+                        {copiedToken === t.token_address ? (
+                          <Check className="w-2.5 h-2.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-2.5 h-2.5" />
+                        )}
+                      </button>
+                      <a
+                        href={`https://solscan.io/token/${t.token_address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-0.5 rounded hover:bg-slate-800 text-slate-500 hover:text-cyan-400 transition-colors"
+                        title="Lihat di Solscan"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-right text-slate-300 font-medium">
                     {t.token_amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}

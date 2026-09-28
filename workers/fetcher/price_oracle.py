@@ -3,34 +3,50 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import httpx
 
 logger = logging.getLogger("price_oracle")
 
-# In-memory price cache: { mint: (price_decimal, expiry_timestamp) }
-_PRICE_CACHE: Dict[str, tuple[Decimal, float]] = {}
+SOL_MINT = "So11111111111111111111111111111111111111112"
+USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+USDT_MINT = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+
+KNOWN_TOKENS: Dict[str, Dict[str, str]] = {
+    SOL_MINT: {"symbol": "SOL", "name": "Solana"},
+    USDC_MINT: {"symbol": "USDC", "name": "USD Coin"},
+    USDT_MINT: {"symbol": "USDT", "name": "Tether USD"},
+}
+
+# In-memory price cache: { mint: (price_decimal, expiry_timestamp, symbol, name) }
+_PRICE_CACHE: Dict[str, tuple[Decimal, float, Optional[str], Optional[str]]] = {}
 CACHE_TTL_SECONDS = 60.0
 
 
-async def fetch_token_prices(token_mints: List[str], timeout: float = 10.0) -> Dict[str, Decimal]:
+async def fetch_token_metadata_and_prices(
+    token_mints: List[str], timeout: float = 10.0
+) -> Dict[str, Dict[str, Any]]:
     """
-    Fetch current USD price for Solana tokens using DexScreener API.
+    Fetch current USD price, symbol, and name for Solana tokens using DexScreener API.
     Supports batching up to 30 tokens per request.
-    Caches prices for 60 seconds.
+    Caches results for 60 seconds.
     """
     now = time.time()
-    results: Dict[str, Decimal] = {}
+    results: Dict[str, Dict[str, Any]] = {}
     to_fetch: List[str] = []
 
-    # Check cache first
+    # Check cache and known tokens first
     for mint in token_mints:
         clean_mint = mint.strip()
         if not clean_mint:
             continue
         cached = _PRICE_CACHE.get(clean_mint)
         if cached and cached[1] > now:
-            results[clean_mint] = cached[0]
+            results[clean_mint] = {
+                "price": cached[0],
+                "symbol": cached[2] or KNOWN_TOKENS.get(clean_mint, {}).get("symbol"),
+                "name": cached[3] or KNOWN_TOKENS.get(clean_mint, {}).get("name"),
+            }
         else:
             to_fetch.append(clean_mint)
 
@@ -50,38 +66,87 @@ async def fetch_token_prices(token_mints: List[str], timeout: float = 10.0) -> D
                 if res.status_code == 200:
                     data = res.json()
                     pairs = data.get("pairs") or []
-                    
+
                     # Group by base token mint, select pair with highest liquidity
                     best_pairs: Dict[str, dict] = {}
                     for pair in pairs:
-                        base_addr = pair.get("baseToken", {}).get("address")
+                        base_token = pair.get("baseToken") or {}
+                        base_addr = base_token.get("address")
                         if not base_addr:
                             continue
                         liq = float(pair.get("liquidity", {}).get("usd") or 0)
                         if base_addr not in best_pairs or liq > best_pairs[base_addr]["liq"]:
-                            best_pairs[base_addr] = {"price": pair.get("priceUsd"), "liq": liq}
+                            best_pairs[base_addr] = {
+                                "price": pair.get("priceUsd"),
+                                "liq": liq,
+                                "symbol": base_token.get("symbol"),
+                                "name": base_token.get("name"),
+                            }
 
                     for mint in chunk:
+                        known = KNOWN_TOKENS.get(mint, {})
                         if mint in best_pairs and best_pairs[mint]["price"]:
                             try:
                                 price_dec = Decimal(str(best_pairs[mint]["price"]))
-                                results[mint] = price_dec
-                                _PRICE_CACHE[mint] = (price_dec, now + CACHE_TTL_SECONDS)
+                                sym = best_pairs[mint].get("symbol") or known.get("symbol")
+                                nm = best_pairs[mint].get("name") or known.get("name")
+                                results[mint] = {
+                                    "price": price_dec,
+                                    "symbol": sym,
+                                    "name": nm,
+                                }
+                                _PRICE_CACHE[mint] = (price_dec, now + CACHE_TTL_SECONDS, sym, nm)
                             except Exception:
-                                results[mint] = Decimal("0")
+                                results[mint] = {
+                                    "price": Decimal("0"),
+                                    "symbol": known.get("symbol"),
+                                    "name": known.get("name"),
+                                }
                         else:
                             # Token not found or has 0 liquidity
-                            results[mint] = Decimal("0")
+                            results[mint] = {
+                                "price": Decimal("0"),
+                                "symbol": known.get("symbol"),
+                                "name": known.get("name"),
+                            }
                 else:
-                    logger.warning(f"DexScreener API returned HTTP {res.status_code} for chunk {chunk[:3]}...")
+                    logger.warning(
+                        f"DexScreener API returned HTTP {res.status_code} for chunk {chunk[:3]}..."
+                    )
                     for mint in chunk:
-                        results[mint] = results.get(mint, Decimal("0"))
+                        known = KNOWN_TOKENS.get(mint, {})
+                        results[mint] = results.get(
+                            mint,
+                            {
+                                "price": Decimal("0"),
+                                "symbol": known.get("symbol"),
+                                "name": known.get("name"),
+                            },
+                        )
         except Exception as exc:
-            logger.warning(f"Failed to fetch prices from DexScreener: {exc}")
+            logger.warning(f"Failed to fetch metadata from DexScreener: {exc}")
             for mint in chunk:
-                results[mint] = results.get(mint, Decimal("0"))
+                known = KNOWN_TOKENS.get(mint, {})
+                results[mint] = results.get(
+                    mint,
+                    {
+                        "price": Decimal("0"),
+                        "symbol": known.get("symbol"),
+                        "name": known.get("name"),
+                    },
+                )
 
     return results
+
+
+async def fetch_token_prices(token_mints: List[str], timeout: float = 10.0) -> Dict[str, Decimal]:
+    """
+    Fetch current USD price for Solana tokens using DexScreener API.
+    Supports batching up to 30 tokens per request.
+    Caches prices for 60 seconds.
+    """
+    meta_results = await fetch_token_metadata_and_prices(token_mints, timeout=timeout)
+    return {mint: info["price"] for mint, info in meta_results.items()}
 
 
 async def get_single_token_price(token_mint: str) -> Decimal:
