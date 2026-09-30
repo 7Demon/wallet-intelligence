@@ -6,6 +6,7 @@ import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import desc, func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from workers.fetcher.price_oracle import fetch_token_prices, fetch_token_metadata_and_prices
@@ -17,6 +18,7 @@ from apps.api.schemas.wallet import (
     InitialFundingResponse,
     MetricsResponse,
     PerformanceResponse,
+    PnLPoint,
     PositionItem,
     SyncStatusResponse,
     SyncTriggerResponse,
@@ -61,16 +63,33 @@ async def trigger_wallet_sync(
             detail=f"Invalid Solana base58 address: {address}",
         )
 
-    # Check or create wallet record
-    stmt = select(Wallet).where(Wallet.address == address)
-    res = await db.execute(stmt)
-    wallet = res.scalar_one_or_none()
-    if not wallet:
-        wallet = Wallet(address=address, chain="solana")
-        db.add(wallet)
-        await db.flush()
+    # 1. Idempotently insert wallet record
+    stmt = (
+        insert(Wallet)
+        .values(address=address, chain="solana", is_tracked=True)
+        .on_conflict_do_nothing(index_elements=["address"])
+    )
+    await db.execute(stmt)
+    await db.commit()
 
-    # Enqueue background sync worker
+    # 2. Check if a sync is already actively running for this wallet
+    active_stmt = (
+        select(WalletSyncJob)
+        .join(Wallet, Wallet.id == WalletSyncJob.wallet_id)
+        .where(Wallet.address == address, WalletSyncJob.status.in_(["SYNCING", "PROCESSING"]))
+        .order_by(desc(WalletSyncJob.created_at))
+        .limit(1)
+    )
+    active_job = (await db.execute(active_stmt)).scalar_one_or_none()
+    if active_job:
+        return SyncTriggerResponse(
+            job_id=str(active_job.id),
+            wallet_address=address,
+            status=active_job.status,
+            message="Wallet synchronization is already running.",
+        )
+
+    # 3. Enqueue background sync worker
     background_tasks.add_task(sync_wallet_history, address)
 
     return SyncTriggerResponse(
@@ -208,7 +227,12 @@ async def get_wallet_trades(
     w_res = await db.execute(select(Wallet.id).where(Wallet.address == address))
     wallet_id = w_res.scalar_one_or_none()
     if not wallet_id:
-        raise HTTPException(status_code=404, detail="Wallet not found")
+        return TradeListResponse(
+            page=page,
+            limit=limit,
+            total_records=0,
+            items=[],
+        )
 
     query = select(Trade).options(selectinload(Trade.token)).where(Trade.wallet_id == wallet_id)
 
@@ -261,7 +285,7 @@ async def get_wallet_positions(
     w_res = await db.execute(select(Wallet.id).where(Wallet.address == address))
     wallet_id = w_res.scalar_one_or_none()
     if not wallet_id:
-        raise HTTPException(status_code=404, detail="Wallet not found")
+        return []
 
     query = (
         select(Position)
@@ -364,11 +388,24 @@ async def get_wallet_performance(
     w_res = await db.execute(select(Wallet.id).where(Wallet.address == address))
     wallet_id = w_res.scalar_one_or_none()
     if not wallet_id:
-        raise HTTPException(status_code=404, detail="Wallet not found")
+        return PerformanceResponse(
+            holding_time_distribution=[],
+            pnl_summary={
+                "realized_pnl": 0.0,
+                "unrealized_pnl": 0.0,
+                "total_pnl": 0.0,
+                "win_rate": 0.0,
+                "roi": 0.0,
+            },
+            pnl_timeline=[],
+        )
 
-    # Get closed positions to calculate holding distribution
-    query = select(Position).where(
-        Position.wallet_id == wallet_id, Position.status == "CLOSED"
+    # Get closed positions to calculate holding distribution and cumulative PnL timeline
+    query = (
+        select(Position, Token.symbol)
+        .join(Token, Token.id == Position.token_id)
+        .where(Position.wallet_id == wallet_id, Position.status == "CLOSED")
+        .order_by(Position.closed_at.asc())
     )
 
     if timeframe in ("7d", "30d"):
@@ -377,7 +414,8 @@ async def get_wallet_performance(
         query = query.where(Position.closed_at >= cutoff)
 
     res = await db.execute(query)
-    closed_pos = res.scalars().all()
+    rows = res.all()
+    closed_pos = [r[0] for r in rows]
 
     buckets = {
         "< 1m": 0,
@@ -409,6 +447,22 @@ async def get_wallet_performance(
 
     distribution = [HoldingBucket(bucket=k, count=v) for k, v in buckets.items()]
 
+    # Calculate cumulative PnL timeline
+    running_pnl = 0.0
+    pnl_timeline = []
+    for pos, sym in rows:
+        if pos.closed_at:
+            pnl_val = float(pos.realized_pnl or 0)
+            running_pnl += pnl_val
+            pnl_timeline.append(
+                PnLPoint(
+                    timestamp=pos.closed_at,
+                    pnl=round(pnl_val, 4),
+                    cumulative_pnl=round(running_pnl, 4),
+                    token_symbol=sym or "Unknown",
+                )
+            )
+
     m_res = await db.execute(select(WalletMetric).where(WalletMetric.wallet_id == wallet_id))
     m = m_res.scalar_one_or_none()
 
@@ -435,6 +489,7 @@ async def get_wallet_performance(
     return PerformanceResponse(
         holding_time_distribution=distribution,
         pnl_summary=pnl_summary,
+        pnl_timeline=pnl_timeline,
     )
 
 
@@ -447,7 +502,7 @@ async def get_wallet_tokens_breakdown(
     w_res = await db.execute(select(Wallet.id).where(Wallet.address == address))
     wallet_id = w_res.scalar_one_or_none()
     if not wallet_id:
-        raise HTTPException(status_code=404, detail="Wallet not found")
+        return []
 
     # Group positions by token
     query = (
@@ -494,7 +549,7 @@ async def get_initial_funding(
     """Retrieve initial funding source, timestamp, and starting SOL balance."""
     # Find the earliest native SOL transfer IN
     stmt = (
-        select(Transfer, Transaction.tx_hash)
+        select(Transfer, Transaction.tx_hash, Transaction.raw_data)
         .join(Transaction, Transaction.id == Transfer.tx_id)
         .where(
             Transfer.wallet_address == address,
@@ -510,10 +565,53 @@ async def get_initial_funding(
     if not row:
         return InitialFundingResponse()
 
-    transfer, tx_hash = row
+    transfer, tx_hash, raw_data = row
+
+    # Resolve sender address from raw transaction payload
+    found_source = None
+    if isinstance(raw_data, dict):
+        tx_data = raw_data.get("transaction", {})
+        msg = tx_data.get("message", {}) if isinstance(tx_data, dict) else {}
+        instrs = msg.get("instructions", []) if isinstance(msg, dict) else []
+        inner = raw_data.get("meta", {}).get("innerInstructions", []) if isinstance(raw_data.get("meta"), dict) else []
+
+        # 1. Search outer instructions
+        for ix in instrs:
+            if isinstance(ix, dict):
+                parsed = ix.get("parsed")
+                if isinstance(parsed, dict) and parsed.get("type") == "transfer":
+                    info = parsed.get("info", {})
+                    if info.get("destination") == address and info.get("source"):
+                        found_source = info.get("source")
+                        break
+
+        # 2. Search inner instructions
+        if not found_source:
+            for grp in inner:
+                if isinstance(grp, dict):
+                    for ix in grp.get("instructions", []):
+                        if isinstance(ix, dict):
+                            parsed = ix.get("parsed")
+                            if isinstance(parsed, dict) and parsed.get("type") == "transfer":
+                                info = parsed.get("info", {})
+                                if info.get("destination") == address and info.get("source"):
+                                    found_source = info.get("source")
+                                    break
+                    if found_source:
+                        break
+
+        # 3. Fallback to fee payer / first signer if different from target address
+        if not found_source and isinstance(msg, dict):
+            acc_keys = msg.get("accountKeys", [])
+            if acc_keys:
+                first_key = acc_keys[0]
+                payer = first_key.get("pubkey") if isinstance(first_key, dict) else first_key
+                if payer and payer != address:
+                    found_source = payer
+
     return InitialFundingResponse(
         first_seen_at=transfer.timestamp,
         initial_balance_sol=float(transfer.amount),
-        first_funding_source="Unknown (Genesis/Faucet)",
+        first_funding_source=found_source or "Genesis / System",
         initial_funding_tx=tx_hash,
     )

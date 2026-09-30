@@ -13,98 +13,99 @@ export function ClassificationBadge({ type, value }: Props) {
       case "VERY_LARGE":
       case "LARGE":
         return {
-          icon: "🐋",
-          label: "WHALE",
-          style: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+          dotColor: "bg-purple-400",
+          label: "Whale",
+          style: "bg-purple-500/10 text-purple-300 border-purple-500/20",
         };
       case "DOLPHIN":
       case "MEDIUM":
         return {
-          icon: "🐬",
-          label: "DOLPHIN",
-          style: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
+          dotColor: "bg-blue-400",
+          label: "Dolphin",
+          style: "bg-blue-500/10 text-blue-300 border-blue-500/20",
         };
       case "FISH":
       case "SMALL":
         return {
-          icon: "🐟",
-          label: "FISH",
-          style: "bg-blue-500/20 text-blue-300 border-blue-500/40",
+          dotColor: "bg-zinc-400",
+          label: "Fish",
+          style: "bg-zinc-800 text-zinc-300 border-zinc-700/60",
         };
       case "SHRIMP":
       case "MICRO":
         return {
-          icon: "🦐",
-          label: "SHRIMP",
-          style: "bg-slate-700/50 text-slate-400 border-slate-600",
+          dotColor: "bg-zinc-500",
+          label: "Shrimp",
+          style: "bg-zinc-800/80 text-zinc-400 border-zinc-800",
         };
       case "SMART_MONEY":
         return {
-          icon: "🧠",
-          label: "SMART MONEY",
-          style: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold",
+          dotColor: "bg-emerald-400",
+          label: "Smart Money",
+          style: "bg-emerald-500/10 text-emerald-300 border-emerald-500/25 font-semibold",
         };
       case "HIGHLY_PROFITABLE":
       case "PROFITABLE":
         return {
-          icon: "🏆",
-          label: value.replace(/_/g, " "),
-          style: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+          dotColor: "bg-emerald-400",
+          label: value === "HIGHLY_PROFITABLE" ? "High Profit" : "Profitable",
+          style: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
         };
       case "HIGHLY_UNPROFITABLE":
       case "UNPROFITABLE":
         return {
-          icon: "🔻",
-          label: value.replace(/_/g, " "),
-          style: "bg-rose-500/10 text-rose-400 border-rose-500/30",
+          dotColor: "bg-rose-400",
+          label: value === "HIGHLY_UNPROFITABLE" ? "Heavy Loss" : "Unprofitable",
+          style: "bg-rose-500/10 text-rose-400 border-rose-500/20",
         };
       case "BREAK_EVEN":
         return {
-          icon: "⚖️",
-          label: "BREAK EVEN",
-          style: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+          dotColor: "bg-amber-400",
+          label: "Break Even",
+          style: "bg-amber-500/10 text-amber-300 border-amber-500/20",
         };
       case "SCALPER":
         return {
-          icon: "⚡",
-          label: "SCALPER",
-          style: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+          dotColor: "bg-sky-400",
+          label: "Scalper",
+          style: "bg-sky-500/10 text-sky-300 border-sky-500/20",
         };
       case "SHORT_TERM_TRADER":
         return {
-          icon: "⏱️",
-          label: "SHORT TERM",
-          style: "bg-sky-500/10 text-sky-400 border-sky-500/30",
+          dotColor: "bg-sky-400",
+          label: "Short Term",
+          style: "bg-sky-500/10 text-sky-300 border-sky-500/20",
         };
       case "SWING_TRADER":
         return {
-          icon: "🌊",
-          label: "SWING TRADER",
-          style: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
+          dotColor: "bg-indigo-400",
+          label: "Swing Trader",
+          style: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20",
         };
       case "HOLDER":
         return {
-          icon: "💎",
-          label: "HOLDER",
-          style: "bg-violet-500/10 text-violet-400 border-violet-500/30",
+          dotColor: "bg-teal-400",
+          label: "Position Holder",
+          style: "bg-teal-500/10 text-teal-300 border-teal-500/20",
         };
       default:
         return {
-          icon: "",
-          label: value.replace(/_/g, " "),
-          style: "bg-slate-800 text-slate-300 border-slate-700",
+          dotColor: "bg-zinc-400",
+          label: value.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase()),
+          style: "bg-zinc-800 text-zinc-300 border-zinc-700/60",
         };
     }
   };
 
-  const { icon, label, style } = getBadgeDetails();
+  const { dotColor, label, style } = getBadgeDetails();
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium border uppercase tracking-wider ${style}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-sans font-medium border tracking-tight ${style}`}
     >
-      {icon && <span>{icon}</span>}
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
       <span>{label}</span>
     </span>
   );
 }
+

@@ -120,8 +120,9 @@ async def sync_wallet_history(
             }
 
         # 4. Fetch full parsed transactions in batches
+        # Helius Free tier allows 10 RPS. Using batch_size=10 with 1.0s pause ensures strict 10 RPS compliance.
         signatures = [sig["signature"] for sig in signatures_info]
-        batch_size = 25
+        batch_size = 10
         raw_txs: List[Dict[str, Any]] = []
 
         for i in range(0, len(signatures), batch_size):
@@ -130,6 +131,8 @@ async def sync_wallet_history(
             for sig, tx_data in zip(batch_sigs, batch_results):
                 if tx_data:
                     raw_txs.append({"signature": sig, "data": tx_data})
+            if i + batch_size < len(signatures):
+                await asyncio.sleep(1.0)
 
         # 5. Store raw transactions and parse
         async with async_session_factory() as session:

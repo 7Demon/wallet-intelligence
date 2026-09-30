@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apps.api.routers.wallet import router as wallet_router
 from apps.api.routers.tracker import router as tracker_router
+from apps.api.routers.webhook import router as webhook_router
 
 app = FastAPI(
     title="Wallet Intelligence API",
@@ -24,6 +25,7 @@ app.add_middleware(
 # Include Routers
 app.include_router(wallet_router)
 app.include_router(tracker_router)
+app.include_router(webhook_router)
 
 
 @app.get("/healthz", tags=["System"])

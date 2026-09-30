@@ -88,6 +88,13 @@ export interface HoldingBucket {
   count: number;
 }
 
+export interface PnLPoint {
+  timestamp: string;
+  pnl: number;
+  cumulative_pnl: number;
+  token_symbol?: string | null;
+}
+
 export interface PerformanceResponse {
   holding_time_distribution: HoldingBucket[];
   pnl_summary: {
@@ -97,6 +104,7 @@ export interface PerformanceResponse {
     win_rate: number;
     roi: number;
   };
+  pnl_timeline?: PnLPoint[];
 }
 
 export interface TokenPerformanceItem {
@@ -220,38 +228,74 @@ export async function getWalletTrades(
   address: string,
   params: { page?: number; limit?: number; side?: string; token?: string } = {}
 ): Promise<TradeListResponse> {
-  const url = new URL(`${API_BASE}/api/wallet/${address}/trades`);
-  if (params.page) url.searchParams.set("page", params.page.toString());
-  if (params.limit) url.searchParams.set("limit", params.limit.toString());
-  if (params.side) url.searchParams.set("side", params.side);
-  if (params.token) url.searchParams.set("token", params.token);
+  try {
+    const url = new URL(`${API_BASE}/api/wallet/${address}/trades`);
+    if (params.page) url.searchParams.set("page", params.page.toString());
+    if (params.limit) url.searchParams.set("limit", params.limit.toString());
+    if (params.side) url.searchParams.set("side", params.side);
+    if (params.token) url.searchParams.set("token", params.token);
 
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch trades");
-  return res.json();
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) {
+      return { page: 1, limit: 15, total_records: 0, items: [] };
+    }
+    return res.json();
+  } catch {
+    return { page: 1, limit: 15, total_records: 0, items: [] };
+  }
 }
 
 export async function getWalletPositions(
   address: string,
   statusFilter?: "OPEN" | "CLOSED"
 ): Promise<PositionItem[]> {
-  const url = new URL(`${API_BASE}/api/wallet/${address}/positions`);
-  if (statusFilter) url.searchParams.set("status_filter", statusFilter);
+  try {
+    const url = new URL(`${API_BASE}/api/wallet/${address}/positions`);
+    if (statusFilter) url.searchParams.set("status_filter", statusFilter);
 
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch positions");
-  return res.json();
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function getWalletPerformance(
   address: string,
   timeframe?: string
 ): Promise<PerformanceResponse> {
-  const url = new URL(`${API_BASE}/api/wallet/${address}/performance`);
-  if (timeframe) url.searchParams.set("timeframe", timeframe);
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch performance");
-  return res.json();
+  try {
+    const url = new URL(`${API_BASE}/api/wallet/${address}/performance`);
+    if (timeframe) url.searchParams.set("timeframe", timeframe);
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) {
+      return {
+        holding_time_distribution: [],
+        pnl_timeline: [],
+        pnl_summary: {
+          realized_pnl: 0,
+          unrealized_pnl: 0,
+          total_pnl: 0,
+          win_rate: 0,
+          roi: 0,
+        },
+      };
+    }
+    return res.json();
+  } catch {
+    return {
+      holding_time_distribution: [],
+      pnl_timeline: [],
+      pnl_summary: {
+        realized_pnl: 0,
+        unrealized_pnl: 0,
+        total_pnl: 0,
+        win_rate: 0,
+        roi: 0,
+      },
+    };
+  }
 }
 
 export async function refreshWalletPrices(
@@ -265,9 +309,13 @@ export async function refreshWalletPrices(
 }
 
 export async function getWalletTokens(address: string): Promise<TokenPerformanceItem[]> {
-  const res = await fetch(`${API_BASE}/api/wallet/${address}/tokens`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch tokens");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/wallet/${address}/tokens`, { cache: "no-store" });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function getWalletFunding(address: string): Promise<InitialFundingResponse> {

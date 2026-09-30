@@ -24,8 +24,8 @@ class SolanaClient:
     def __init__(
         self,
         rpc_url: Optional[str] = None,
-        max_retries: int = 5,
-        base_delay: float = 0.5,
+        max_retries: int = 8,
+        base_delay: float = 1.0,
         timeout: float = 30.0,
     ):
         helius_key = os.getenv("HELIUS_API_KEY") or os.getenv("api_key")
@@ -61,8 +61,19 @@ class SolanaClient:
                     if response.status_code == 429:  # Rate limited
                         if attempt == self.max_retries - 1:
                             raise RuntimeError(f"Solana RPC rate limited (429) after {self.max_retries} attempts.")
-                        await asyncio.sleep(delay)
-                        delay *= 2
+                        retry_after = response.headers.get("retry-after")
+                        if retry_after:
+                            try:
+                                backoff = max(float(retry_after), 2.0)
+                            except ValueError:
+                                backoff = max(delay, 2.0)
+                        else:
+                            backoff = max(delay, 2.0)
+                        logger.warning(
+                            f"Solana RPC rate limited (429). Retrying in {backoff:.1f}s (attempt {attempt + 1}/{self.max_retries})..."
+                        )
+                        await asyncio.sleep(backoff)
+                        delay = backoff * 1.5
                         continue
                     response.raise_for_status()
                     data = response.json()
@@ -96,7 +107,6 @@ class SolanaClient:
             "method": "getSignaturesForAddress",
             "params": [address, config],
         }
-
         res = await self._post_rpc(payload)
         if "error" in res:
             raise RuntimeError(f"RPC Error getSignaturesForAddress: {res['error']}")
@@ -112,7 +122,7 @@ class SolanaClient:
                 signature,
                 {
                     "encoding": "jsonParsed",
-                    "maxSupportedTransactionVersion": 0,
+                    "maxSupportedTransactionVersion": 1,
                 },
             ],
         }
@@ -137,7 +147,7 @@ class SolanaClient:
                     sig,
                     {
                         "encoding": "jsonParsed",
-                        "maxSupportedTransactionVersion": 0,
+                        "maxSupportedTransactionVersion": 1,
                     },
                 ],
             }

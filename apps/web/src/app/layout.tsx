@@ -50,29 +50,29 @@ export default function RootLayout({
         />
       </head>
       <body
-        className="min-h-full bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-purple-500/30 selection:text-purple-300"
+        className="min-h-full bg-[#090a0f] text-zinc-100 flex flex-col font-sans selection:bg-zinc-800 selection:text-white"
         suppressHydrationWarning
       >
-        {/* Sleek Top Navigation */}
-        <header className="border-b border-slate-800/80 bg-[#090d16]/80 backdrop-blur-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-purple-500/20 group-hover:scale-105 transition-transform">
+        {/* Clean Modern Navigation */}
+        <header className="border-b border-[#1e2029] bg-[#090a0f]/90 backdrop-blur-md sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="w-7 h-7 rounded-md bg-zinc-100 text-zinc-950 flex items-center justify-center font-bold text-xs tracking-wider transition-opacity group-hover:opacity-90">
                 WI
               </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+              <div className="flex items-baseline gap-2">
+                <span className="font-semibold text-sm tracking-tight text-white">
                   Wallet Intelligence
                 </span>
-                <span className="text-[10px] text-cyan-400 font-mono tracking-wider uppercase -mt-0.5">
-                  Phase 1 MVP · Solana
+                <span className="text-xs text-zinc-500 hidden sm:inline">
+                  Solana Analytics
                 </span>
               </div>
             </Link>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-900/80 border border-zinc-800/80 text-[11px] text-zinc-400 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 <span>Solana Mainnet</span>
               </div>
             </div>
@@ -83,9 +83,10 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
 
         {/* Minimal Footer */}
-        <footer className="border-t border-slate-800/60 bg-[#090d16] py-6 text-center text-xs text-slate-500 font-mono">
-          <div className="max-w-7xl mx-auto px-4">
-            Wallet Intelligence Engine &copy; 2026 · Accuracy-first On-chain Trade Reconstruction
+        <footer className="border-t border-[#1e2029] bg-[#090a0f] py-6 text-xs text-zinc-500">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>Wallet Intelligence &copy; 2026</span>
+            <span className="text-zinc-600">On-chain trade reconstruction &amp; wallet profiling</span>
           </div>
         </footer>
       </body>

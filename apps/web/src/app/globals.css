@@ -1,12 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #090d16;
-  --foreground: #f1f5f9;
-  --card: #0f172a;
-  --card-border: #1e293b;
-  --accent-cyan: #06b6d4;
-  --accent-purple: #8b5cf6;
+  --background: #090a0f;
+  --foreground: #f4f4f5;
+  --muted: #71717a;
+  --card: #12131a;
+  --card-border: #1e2029;
+  --card-border-subtle: rgba(255, 255, 255, 0.06);
+  --primary: #f4f4f5;
+  --primary-foreground: #090a0f;
+  --accent: #3b82f6;
   --profit: #10b981;
   --loss: #f43f5e;
 }
@@ -14,41 +17,48 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom sleek scrollbar */
+/* Custom sleek, unobtrusive scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #090a0f;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 3px;
+  background: #27272a;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #3f3f46;
 }
 
-/* Glassmorphic card styling */
+/* Modern clean surface cards (no hazy blur halos or colored glows) */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.6);
+  background-color: #111218;
+  border: 1px solid var(--card-border);
   border-radius: 0.75rem;
+}
+
+.glass-panel-subtle {
+  background-color: #0d0e13;
+  border: 1px solid var(--card-border-subtle);
+  border-radius: 0.5rem;
 }
 
 .glass-panel-glow {
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  box-shadow: 0 0 25px -5px rgba(139, 92, 246, 0.15);
+  background-color: #12131a;
+  border: 1px solid #27272a;
   border-radius: 0.75rem;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
+

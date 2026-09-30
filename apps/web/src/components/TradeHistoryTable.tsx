@@ -47,66 +47,66 @@ export function TradeHistoryTable({ address }: Props) {
   }, [address, page, sideFilter, tokenSearch]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-sans">
       {/* Controls Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Side Tabs */}
-        <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 text-xs font-mono">
+        <div className="flex items-center gap-0.5 bg-zinc-900/80 p-0.5 rounded-lg border border-zinc-800 text-xs">
           <button
             onClick={() => {
               setSideFilter("");
               setPage(1);
             }}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
-              sideFilter === "" ? "bg-slate-800 text-white font-medium shadow-sm" : "text-slate-400 hover:text-slate-200"
+            className={`px-3 py-1 rounded-md transition-colors ${
+              sideFilter === "" ? "bg-zinc-800 text-white font-medium shadow-sm" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            ALL
+            All
           </button>
           <button
             onClick={() => {
               setSideFilter("BUY");
               setPage(1);
             }}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
-              sideFilter === "BUY" ? "bg-emerald-500/20 text-emerald-400 font-medium" : "text-slate-400 hover:text-slate-200"
+            className={`px-3 py-1 rounded-md transition-colors ${
+              sideFilter === "BUY" ? "bg-zinc-800 text-emerald-400 font-medium shadow-sm" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            BUY
+            Buy
           </button>
           <button
             onClick={() => {
               setSideFilter("SELL");
               setPage(1);
             }}
-            className={`px-3 py-1.5 rounded-md transition-colors ${
-              sideFilter === "SELL" ? "bg-rose-500/20 text-rose-400 font-medium" : "text-slate-400 hover:text-slate-200"
+            className={`px-3 py-1 rounded-md transition-colors ${
+              sideFilter === "SELL" ? "bg-zinc-800 text-rose-400 font-medium shadow-sm" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
-            SELL
+            Sell
           </button>
         </div>
 
         {/* Token Search Input */}
         <div className="relative">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Filter by token mint/symbol..."
+            placeholder="Filter by token mint / symbol..."
             value={tokenSearch}
             onChange={(e) => {
               setTokenSearch(e.target.value);
               setPage(1);
             }}
-            className="bg-slate-900/80 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 font-mono focus:outline-none focus:ring-1 focus:ring-purple-500/50 w-56"
+            className="bg-zinc-900/90 border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 font-mono focus:outline-none focus:border-zinc-700 w-56"
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-800/80 bg-slate-900/40">
-        <table className="w-full text-left text-xs font-mono">
-          <thead className="bg-slate-900/90 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px]">
+      <div className="overflow-x-auto rounded-xl border border-zinc-800/80 bg-zinc-950/40">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-zinc-900/70 text-zinc-400 border-b border-zinc-800 font-medium text-[11px] uppercase tracking-wider">
             <tr>
               <th className="py-3 px-4">Time</th>
               <th className="py-3 px-4">Side</th>
@@ -118,38 +118,38 @@ export function TradeHistoryTable({ address }: Props) {
               <th className="py-3 px-4 text-center">TX</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
+          <tbody className="divide-y divide-zinc-800/60">
             {loading ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-500">
+                <td colSpan={8} className="py-8 text-center text-zinc-500 font-mono">
                   Loading trades...
                 </td>
               </tr>
             ) : trades.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-500">
+                <td colSpan={8} className="py-8 text-center text-zinc-500">
                   No reconstructed trades found for this filter.
                 </td>
               </tr>
             ) : (
               trades.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3 px-4 text-slate-400">
+                <tr key={t.id} className="hover:bg-zinc-800/30 transition-colors">
+                  <td className="py-3 px-4 text-zinc-400 font-mono">
                     {new Date(t.timestamp).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
                       second: "2-digit",
                     })}
-                    <span className="block text-[10px] text-slate-500">
+                    <span className="block text-[10px] text-zinc-500">
                       {new Date(t.timestamp).toLocaleDateString()}
                     </span>
                   </td>
                   <td className="py-3 px-4">
                     <span
-                      className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                      className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
                         t.side === "BUY"
-                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                          : "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                       }`}
                     >
                       {t.side}
@@ -157,16 +157,16 @@ export function TradeHistoryTable({ address }: Props) {
                   </td>
                   <td className="py-3 px-4 space-y-0.5">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-xs px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">
-                        ${t.token_symbol || "UNKNOWN"}
+                      <span className="font-semibold text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700/60 font-mono">
+                        ${t.token_symbol || "TOKEN"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                      <span className="font-mono text-slate-500">{shortenAddress(t.token_address)}</span>
+                    <div className="flex items-center gap-1 text-[11px] text-zinc-500 pt-0.5 font-mono">
+                      <span>{shortenAddress(t.token_address)}</span>
                       <button
                         onClick={() => handleCopyToken(t.token_address)}
-                        className="p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-                        title="Salin Alamat Token"
+                        className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 transition-colors"
+                        title="Copy Token Address"
                       >
                         {copiedToken === t.token_address ? (
                           <Check className="w-2.5 h-2.5 text-emerald-400" />
@@ -178,29 +178,29 @@ export function TradeHistoryTable({ address }: Props) {
                         href={`https://solscan.io/token/${t.token_address}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-0.5 rounded hover:bg-slate-800 text-slate-500 hover:text-cyan-400 transition-colors"
-                        title="Lihat di Solscan"
+                        className="p-0.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors"
+                        title="View on Solscan"
                       >
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-right text-slate-300 font-medium">
+                  <td className="py-3 px-4 text-right text-zinc-300 font-mono tabular-nums">
                     {t.token_amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}
                   </td>
-                  <td className="py-3 px-4 text-right text-slate-200 font-medium">
+                  <td className="py-3 px-4 text-right text-zinc-100 font-mono font-medium tabular-nums">
                     {t.quote_amount.toFixed(4)} SOL
                   </td>
-                  <td className="py-3 px-4 text-right text-slate-400">
+                  <td className="py-3 px-4 text-right text-zinc-400 font-mono tabular-nums">
                     {t.price ? t.price.toFixed(8) : "-"}
                   </td>
-                  <td className="py-3 px-4 text-slate-400 text-[11px]">{t.dex || "DEX"}</td>
+                  <td className="py-3 px-4 text-zinc-400 text-xs">{t.dex || "DEX"}</td>
                   <td className="py-3 px-4 text-center">
                     <a
                       href={`https://solscan.io/tx/${t.tx_hash}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-slate-500 hover:text-cyan-400 inline-flex items-center"
+                      className="text-zinc-500 hover:text-zinc-300 inline-flex items-center"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
@@ -213,22 +213,22 @@ export function TradeHistoryTable({ address }: Props) {
       </div>
 
       {/* Pagination Controls */}
-      <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+      <div className="flex items-center justify-between text-xs text-zinc-400 px-1 font-mono">
         <span>
           Page {page} of {totalPages}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            className="p-1.5 rounded bg-slate-900 border border-slate-800 hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="p-1.5 rounded bg-slate-900 border border-slate-800 hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>

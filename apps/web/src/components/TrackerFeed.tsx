@@ -59,56 +59,56 @@ export function TrackerFeed() {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between text-xs font-mono text-slate-400 pb-2 border-b border-slate-800">
-        <span className="flex items-center gap-1.5 text-cyan-400 font-bold">
-          <Radio className="w-3.5 h-3.5 animate-pulse" /> Live Multi-Wallet Signals
+    <div className="space-y-2 font-sans">
+      <div className="flex items-center justify-between text-xs text-zinc-400 pb-2 border-b border-zinc-800">
+        <span className="flex items-center gap-1.5 text-zinc-200 font-medium">
+          <Radio className="w-3.5 h-3.5 text-zinc-400" /> Live Wallet Signals
         </span>
-        <span className="text-[11px] text-slate-500">Auto-refreshing every 5s</span>
+        <span className="text-[11px] text-zinc-500 font-mono">Auto-refresh: 10s</span>
       </div>
 
-      <div className="divide-y divide-slate-800/60 max-h-[600px] overflow-y-auto pr-1">
+      <div className="divide-y divide-zinc-800/60 max-h-[600px] overflow-y-auto pr-1">
         {feed.map((item) => {
           const isBuy = item.side === "BUY";
           return (
             <div
               key={item.id}
-              className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-800/30 px-2 rounded-lg transition-colors font-mono text-xs"
+              className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-zinc-800/30 px-2 rounded-lg transition-colors text-xs"
             >
               <div className="flex items-center gap-2.5">
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                    isBuy ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                  className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${
+                    isBuy ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
                   }`}
                 >
-                  {isBuy ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                  {isBuy ? <ArrowDownRight className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
                 </div>
 
                 <div>
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/wallet/${item.wallet_address}`}
-                      className="font-bold text-slate-200 hover:text-cyan-400 transition-colors"
+                      className="font-medium text-white hover:underline transition-colors"
                     >
                       {item.wallet_label || shortenAddress(item.wallet_address)}
                     </Link>
                     <span
-                      className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase ${
-                        isBuy ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"
+                      className={`px-1.5 py-0.2 rounded text-[10px] font-semibold uppercase ${
+                        isBuy ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
                       }`}
                     >
                       {item.side}
                     </span>
-                    <span className="font-bold text-xs px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">
-                      ${item.token_symbol || "UNKNOWN"}
+                    <span className="font-medium text-xs px-2 py-0.2 rounded bg-zinc-800 text-zinc-200 border border-zinc-700/60 font-mono">
+                      ${item.token_symbol || "TOKEN"}
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                    <span className="font-mono text-slate-500 text-[10px]">{shortenAddress(item.token_address)}</span>
+                  <div className="text-[11px] text-zinc-400 flex items-center gap-2 pt-0.5">
+                    <span className="font-mono text-zinc-500 text-[10px]">{shortenAddress(item.token_address)}</span>
                     <button
                       onClick={(e) => handleCopyToken(e, item.token_address)}
-                      className="p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
-                      title="Salin Alamat Token"
+                      className="p-0.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+                      title="Copy Token Mint"
                     >
                       {copiedToken === item.token_address ? (
                         <Check className="w-2.5 h-2.5 text-emerald-400" />
@@ -116,16 +116,16 @@ export function TrackerFeed() {
                         <Copy className="w-2.5 h-2.5" />
                       )}
                     </button>
-                    <span>·</span>
-                    <span className="font-semibold text-slate-300">{item.quote_amount.toFixed(4)} SOL</span>
-                    <span>·</span>
-                    <span>{item.dex || "DEX"}</span>
+                    <span className="text-zinc-600">·</span>
+                    <span className="font-mono font-medium text-zinc-300">{item.quote_amount.toFixed(4)} SOL</span>
+                    <span className="text-zinc-600">·</span>
+                    <span className="text-zinc-500">{item.dex || "DEX"}</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 text-right shrink-0">
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] font-mono text-zinc-500">
                   {new Date(item.timestamp).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -136,10 +136,10 @@ export function TrackerFeed() {
                   href={`https://solscan.io/tx/${item.tx_hash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-500 hover:text-cyan-400 p-1"
+                  className="text-zinc-500 hover:text-zinc-300 p-1"
                   title="View on Solscan"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>
@@ -149,3 +149,4 @@ export function TrackerFeed() {
     </div>
   );
 }
+

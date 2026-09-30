@@ -37,9 +37,16 @@ import { ClassificationBadge } from "@/components/ClassificationBadge";
 interface Props {
   refreshTrigger: number;
   onRefresh: () => void;
+  selectedAddress?: string | null;
+  onSelectWallet?: (wallet: TrackedWalletItem) => void;
 }
 
-export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
+export function WatchlistTable({
+  refreshTrigger,
+  onRefresh,
+  selectedAddress,
+  onSelectWallet,
+}: Props) {
   const [wallets, setWallets] = useState<TrackedWalletItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -103,6 +110,9 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
         limit: 100,
       });
       setWallets(res.items);
+      if (!selectedAddress && res.items.length > 0 && onSelectWallet) {
+        onSelectWallet(res.items[0]);
+      }
     } catch (err) {
       console.error("Failed to load tracked wallets:", err);
       setErrorMsg("Cannot connect to Backend API (http://localhost:8000). Please start the backend server.");
@@ -285,44 +295,43 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Group / Folder Quick Filter Pills (GMGN / Axiom Style) & Timeframe Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800/60">
+    <div className="space-y-3.5">
+      {/* Group / Folder Quick Filter Pills & Timeframe Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-800/80">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          <span className="text-[11px] font-mono text-slate-500 shrink-0 flex items-center gap-1 pr-1">
-            <Folder className="w-3.5 h-3.5 text-purple-400" /> Grup:
+          <span className="text-xs text-zinc-500 shrink-0 flex items-center gap-1 pr-1">
+            <Folder className="w-3.5 h-3.5 text-zinc-400" /> Group:
           </span>
           <button
             onClick={() => setSelectedTag("")}
-            className={`px-3 py-1 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 shrink-0 ${
               selectedTag === ""
-                ? "bg-purple-600 text-white font-bold shadow-md shadow-purple-600/30"
-                : "bg-slate-900/90 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700"
+                ? "bg-zinc-800 text-zinc-100 border border-zinc-700/80 shadow-sm"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
             }`}
           >
-            <span>Semua Wallet</span>
-            <span className="text-[10px] opacity-75 bg-black/30 px-1 rounded">({wallets.length})</span>
+            <span>All Wallets</span>
+            <span className="text-[10px] text-zinc-500 font-mono">({wallets.length})</span>
           </button>
 
           {availableTags.map(([tag, count]) => (
             <button
               key={tag}
               onClick={() => setSelectedTag(tag === selectedTag ? "" : tag)}
-              className={`px-3 py-1 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 shrink-0 ${
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 shrink-0 ${
                 selectedTag === tag
-                  ? "bg-cyan-600 text-white font-bold shadow-md shadow-cyan-600/30"
-                  : "bg-slate-900/90 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700"
+                  ? "bg-zinc-800 text-zinc-100 border border-zinc-700/80 shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
               }`}
             >
-              <Tag className="w-3 h-3 text-cyan-400" />
               <span>{tag}</span>
-              <span className="text-[10px] opacity-75 bg-black/30 px-1.5 py-0.5 rounded">({count})</span>
+              <span className="text-[10px] text-zinc-500 font-mono">({count})</span>
             </button>
           ))}
         </div>
 
         {/* Timeframe Toggle: All Time | 30D | 7D */}
-        <div className="flex items-center gap-1 shrink-0 self-start sm:self-auto bg-slate-900/90 p-0.5 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-0.5 shrink-0 self-start sm:self-auto bg-zinc-900/80 p-0.5 rounded-lg border border-zinc-800">
           {[
             { id: "all", label: "All-Time" },
             { id: "30d", label: "30D" },
@@ -331,10 +340,10 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
             <button
               key={tf.id}
               onClick={() => setTimeframe(tf.id)}
-              className={`px-2.5 py-0.5 rounded-md text-[11px] font-mono transition-all ${
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                 timeframe === tf.id
-                  ? "bg-cyan-500 text-slate-950 font-bold shadow"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-zinc-800 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
               {tf.label}
@@ -345,55 +354,55 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
 
       {/* Dormant Wallets Alert Banner */}
       {dormantWallets.length > 0 && (
-        <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono shadow-lg shadow-amber-950/20">
+        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5 text-amber-300">
-            <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 shrink-0">
+            <div className="p-1 rounded-md bg-amber-500/10 text-amber-400 shrink-0">
               <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
-              <span className="font-bold text-amber-200">
-                ⚠️ Terdeteksi {dormantWallets.length} Wallet Tidak Aktif (&gt;30 Hari)
+              <span className="font-semibold text-amber-200">
+                {dormantWallets.length} Inactive Wallets Detected (&gt;30 Days)
               </span>
-              <p className="text-[11px] text-amber-400/80">
-                Wallet ini tidak memiliki transaksi on-chain dalam 30 hari terakhir. Untrack untuk menghemat kuota RPC.
+              <p className="text-[11px] text-amber-400/80 mt-0.5">
+                These wallets have had no on-chain activity for over 30 days. Untrack them to optimize RPC usage.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setActivityFilter(activityFilter === "dormant" ? "all" : "dormant")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all border ${
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors border ${
                 activityFilter === "dormant"
-                  ? "bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-sm"
-                  : "bg-amber-900/40 text-amber-200 border-amber-700/50 hover:bg-amber-800/50"
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                  : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800"
               }`}
             >
-              {activityFilter === "dormant" ? "Tampilkan Semua" : "Filter Wallet Dormant"}
+              {activityFilter === "dormant" ? "Show All" : "Filter Inactive"}
             </button>
             <button
               onClick={handleCleanupDormant}
               disabled={cleaningDormant}
-              className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold flex items-center gap-1.5 transition-all disabled:opacity-50"
+              className="px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>{cleaningDormant ? "Membersihkan..." : `Bersihkan Semua (${dormantWallets.length})`}</span>
+              <span>{cleaningDormant ? "Cleaning..." : `Clean All (${dormantWallets.length})`}</span>
             </button>
           </div>
         </div>
       )}
 
       {/* Filtering & Sorting Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search tag or address..."
+              placeholder="Filter by label or address..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-slate-900/90 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500/50 w-52"
+              className="bg-zinc-900/90 border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 w-52 font-mono"
             />
           </div>
 
@@ -401,7 +410,7 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
           <select
             value={tierFilter}
             onChange={(e) => setTierFilter(e.target.value)}
-            className="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none"
+            className="bg-zinc-900/90 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-700"
           >
             <option value="">All Tiers</option>
             <option value="PROFITABLE">Profitable Only</option>
@@ -410,48 +419,48 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
             <option value="UNPROFITABLE">Unprofitable</option>
           </select>
 
-          {/* Category / Position Size Filter (Whale, Smart Money, etc.) */}
+          {/* Category / Position Size Filter */}
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-slate-900/90 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+            className="bg-zinc-900/90 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-700"
           >
-            <option value="">Semua Profil</option>
-            <option value="whale">🐋 Whale (&gt;$10k Entry)</option>
-            <option value="smart_money">🧠 Smart Money (WR 60%+ &amp; Profit)</option>
-            <option value="dolphin">🐬 Dolphin ($1k - $10k)</option>
-            <option value="scalper">⚡ Scalper / Sniper (&lt;5m)</option>
-            <option value="shrimp">🦐 Shrimp (&lt;$1k)</option>
+            <option value="">All Profiles</option>
+            <option value="whale">Whale (&gt;$10k)</option>
+            <option value="smart_money">Smart Money (WR 60%+)</option>
+            <option value="dolphin">Dolphin ($1k - $10k)</option>
+            <option value="scalper">Scalper (&lt;5m)</option>
+            <option value="shrimp">Shrimp (&lt;$1k)</option>
           </select>
 
           {/* Activity / Dormant Filter */}
           <select
             value={activityFilter}
             onChange={(e) => setActivityFilter(e.target.value as any)}
-            className={`border rounded-lg px-3 py-1.5 text-xs focus:outline-none transition-colors ${
+            className={`border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none transition-colors ${
               activityFilter === "dormant"
-                ? "bg-amber-950/80 border-amber-500/50 text-amber-300 font-bold"
-                : "bg-slate-900/90 border-slate-800 text-slate-300"
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-300 font-medium"
+                : "bg-zinc-900/90 border-zinc-800 text-zinc-300"
             }`}
           >
-            <option value="all">Semua Status</option>
-            <option value="active">Aktif (&le;30 Hari)</option>
-            <option value="dormant">⚠️ Dormant (&gt;30 Hari)</option>
+            <option value="all">All Status</option>
+            <option value="active">Active (&le;30 Days)</option>
+            <option value="dormant">Inactive (&gt;30 Days)</option>
           </select>
         </div>
 
         {/* Sorting & Dynamic Actions */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-500">Sort:</span>
+            <span className="text-zinc-500">Sort:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none"
+              className="bg-zinc-900/90 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-zinc-700"
             >
               <option value="pnl">Realized PnL</option>
               <option value="win_rate">Win Rate</option>
-              <option value="avg_position">Ukuran Posisi (Avg Entry)</option>
+              <option value="avg_position">Avg Entry Size</option>
               <option value="trades">Trade Count</option>
               <option value="last_active">Last Active</option>
               <option value="created_at">Date Added</option>
@@ -459,81 +468,69 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
 
             <button
               onClick={() => setOrder((o) => (o === "desc" ? "asc" : "desc"))}
-              className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200"
+              className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
               title={`Order: ${order.toUpperCase()}`}
             >
               <ArrowUpDown className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="h-4 w-[1px] bg-slate-800 mx-1 hidden sm:block" />
+          <div className="h-4 w-[1px] bg-zinc-800 mx-1 hidden sm:block" />
 
           {/* Dynamic Smart Action Controls */}
           {selectedWallets.size > 0 ? (
-            <div className="flex items-center gap-1.5 bg-purple-950/40 border border-purple-500/30 rounded-lg p-1">
-              <span className="text-[11px] font-bold text-purple-300 px-2 shrink-0">
-                {selectedWallets.size} dipilih
+            <div className="flex items-center gap-1.5 bg-zinc-800/80 border border-zinc-700/80 rounded-lg p-1">
+              <span className="text-[11px] font-medium text-zinc-300 px-2 shrink-0">
+                {selectedWallets.size} selected
               </span>
               <button
-                onClick={() => handleBulkSync(Array.from(selectedWallets), "terpilih")}
+                onClick={() => handleBulkSync(Array.from(selectedWallets), "selected")}
                 disabled={bulkOperating}
-                className="px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-1 transition-all disabled:opacity-50 shadow-sm"
-                title="Sinkronisasi inkremental wallet terpilih"
+                className="px-2.5 py-1 rounded-md bg-white hover:bg-zinc-200 text-zinc-950 font-medium text-xs flex items-center gap-1 transition-colors disabled:opacity-50"
+                title="Sync selected wallets"
               >
-                <Zap className="w-3.5 h-3.5 text-amber-300" />
-                <span>Sync Terpilih</span>
+                <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+                <span>Sync Selected</span>
               </button>
               <button
                 onClick={handleBulkUntrackSelected}
                 disabled={bulkOperating}
-                className="px-2.5 py-1 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold flex items-center gap-1 transition-all disabled:opacity-50"
-                title="Hapus wallet terpilih dari watchlist"
+                className="px-2.5 py-1 rounded-md bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-medium flex items-center gap-1 transition-colors disabled:opacity-50"
+                title="Remove selected wallets from watchlist"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Hapus</span>
+                <Trash2 className="w-3 h-3" />
+                <span>Remove</span>
               </button>
               <button
                 onClick={() => setSelectedWallets(new Set())}
-                className="text-slate-400 hover:text-slate-200 text-[11px] px-1.5"
+                className="text-zinc-400 hover:text-zinc-200 text-[11px] px-1.5"
               >
-                Batal
+                Cancel
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              {selectedTag ? (
-                <button
-                  onClick={() => handleBulkSync(displayedWallets.map((w) => w.address), `grup "${selectedTag}"`)}
-                  disabled={bulkOperating || displayedWallets.length === 0}
-                  className="px-2.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 shadow-sm"
-                  title={`Sync grup ${selectedTag}`}
-                >
-                  <RotateCw className={`w-3.5 h-3.5 ${bulkOperating ? "animate-spin" : ""}`} />
-                  <span>Sync Grup {selectedTag} ({displayedWallets.length})</span>
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleBulkSync(displayedWallets.map((w) => w.address), "semua wallet")}
-                  disabled={bulkOperating || displayedWallets.length === 0}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                  title="Sinkronisasi semua wallet di tampilan ini"
-                >
-                  <RotateCw
-                    className={`w-3.5 h-3.5 text-cyan-400 ${
-                      bulkOperating ? "animate-spin" : ""
-                    }`}
-                  />
-                  <span className="hidden sm:inline">Sync All ({displayedWallets.length})</span>
-                </button>
-              )}
+              <button
+                onClick={() => handleBulkSync(displayedWallets.map((w) => w.address), selectedTag ? `group "${selectedTag}"` : "all wallets")}
+                disabled={bulkOperating || displayedWallets.length === 0}
+                className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                title="Synchronize wallets"
+              >
+                <RotateCw
+                  className={`w-3.5 h-3.5 text-zinc-400 ${
+                    bulkOperating ? "animate-spin" : ""
+                  }`}
+                />
+                <span className="hidden sm:inline">Sync All ({displayedWallets.length})</span>
+              </button>
 
               <button
                 onClick={handleExportCSV}
                 disabled={displayedWallets.length === 0}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                title="Download CSV file"
+                className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                title="Download CSV"
               >
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <Download className="w-3.5 h-3.5 text-zinc-400" />
                 <span className="hidden sm:inline">Export CSV</span>
               </button>
             </div>
@@ -542,30 +539,30 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-800/80 bg-slate-900/40">
-        <table className="w-full text-left text-xs font-mono">
-          <thead className="bg-slate-900/90 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[11px]">
+      <div className="overflow-x-auto rounded-xl border border-zinc-800/80 bg-zinc-950/40">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-zinc-900/70 text-zinc-400 border-b border-zinc-800 font-medium text-[11px] uppercase tracking-wider">
             <tr>
               <th className="py-3 px-3 w-10 text-center">
                 <button
                   onClick={handleToggleSelectAll}
-                  className="text-slate-400 hover:text-slate-200 transition-colors p-0.5"
-                  title={allDisplayedSelected ? "Batal pilih semua" : "Pilih semua"}
+                  className="text-zinc-400 hover:text-zinc-200 transition-colors p-0.5"
+                  title={allDisplayedSelected ? "Deselect all" : "Select all"}
                 >
                   {allDisplayedSelected ? (
-                    <CheckSquare className="w-4 h-4 text-purple-400" />
+                    <CheckSquare className="w-4 h-4 text-zinc-200" />
                   ) : (
-                    <Square className="w-4 h-4 text-slate-500" />
+                    <Square className="w-4 h-4 text-zinc-600" />
                   )}
                 </button>
               </th>
-              <th className="py-3 px-4">Label / Address</th>
-              <th className="py-3 px-4">Klasifikasi &amp; Tipe Posisi</th>
+              <th className="py-3 px-4">Wallet</th>
+              <th className="py-3 px-4">Profile &amp; Position</th>
               <th className="py-3 px-4 text-right">
-                Realized PnL {timeframe !== "all" && <span className="text-[10px] text-cyan-400 font-bold uppercase">({timeframe})</span>}
+                Realized PnL {timeframe !== "all" && <span className="text-[10px] text-zinc-400 font-bold uppercase">({timeframe})</span>}
               </th>
               <th className="py-3 px-4 text-right">
-                Win Rate {timeframe !== "all" && <span className="text-[10px] text-cyan-400 font-bold uppercase">({timeframe})</span>}
+                Win Rate {timeframe !== "all" && <span className="text-[10px] text-zinc-400 font-bold uppercase">({timeframe})</span>}
               </th>
               <th className="py-3 px-4 text-center">Trades</th>
               <th className="py-3 px-4 text-right">Last Active</th>
@@ -573,10 +570,10 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
               <th className="py-3 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
+          <tbody className="divide-y divide-zinc-800/60 font-sans">
             {loading ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-slate-500">
+                <td colSpan={9} className="py-12 text-center text-zinc-500 font-mono">
                   Loading tracked wallets...
                 </td>
               </tr>
@@ -584,10 +581,10 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
               <tr>
                 <td colSpan={9} className="py-12 text-center">
                   <div className="flex flex-col items-center justify-center gap-2 text-amber-400">
-                    <p className="font-mono text-sm font-semibold">{errorMsg}</p>
+                    <p className="text-xs font-semibold">{errorMsg}</p>
                     <button
                       onClick={loadWallets}
-                      className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 transition-colors"
+                      className="px-3 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 border border-zinc-700 transition-colors"
                     >
                       Retry Connection
                     </button>
@@ -596,14 +593,14 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
               </tr>
             ) : wallets.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-slate-500">
-                  No wallets tracked yet. Click &quot;+ Import Wallets&quot; above to add addresses!
+                <td colSpan={9} className="py-12 text-center text-zinc-500">
+                  No wallets tracked yet. Click &quot;Import Wallets&quot; above to add addresses.
                 </td>
               </tr>
             ) : displayedWallets.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-slate-400 font-mono text-xs">
-                  Tidak ada wallet dalam tampilan filter saat ini.
+                <td colSpan={9} className="py-12 text-center text-zinc-400 text-xs">
+                  No wallets match the current filter criteria.
                   <button
                     onClick={() => {
                       setSelectedTag("");
@@ -611,9 +608,9 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                       setCategoryFilter("");
                       setTierFilter("");
                     }}
-                    className="ml-2 text-cyan-400 underline hover:text-cyan-300 font-bold"
+                    className="ml-2 text-zinc-200 underline hover:text-white font-medium"
                   >
-                    Reset Filter
+                    Reset Filters
                   </button>
                 </td>
               </tr>
@@ -622,25 +619,37 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                 const isProfit = w.realized_pnl >= 0;
                 const isEditing = editingAddress === w.address;
                 const isSelected = selectedWallets.has(w.address);
+                const isOverviewActive = selectedAddress === w.address;
 
                 return (
                   <tr
                     key={w.id}
-                    className={`hover:bg-slate-800/30 transition-colors ${
-                      isSelected ? "bg-purple-950/20 border-l-2 border-purple-500" : ""
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.closest("button") || target.closest("a") || target.closest("input")) {
+                        return;
+                      }
+                      if (onSelectWallet) onSelectWallet(w);
+                    }}
+                    className={`transition-colors cursor-pointer ${
+                      isOverviewActive
+                        ? "bg-zinc-800/70"
+                        : isSelected
+                        ? "bg-zinc-800/35"
+                        : "hover:bg-zinc-900/50"
                     }`}
                   >
                     {/* Row Checkbox */}
                     <td className="py-3 px-3 text-center">
                       <button
                         onClick={() => handleToggleSelectWallet(w.address)}
-                        className="text-slate-400 hover:text-slate-200 transition-colors p-0.5"
-                        title={isSelected ? "Batal pilih" : "Pilih wallet"}
+                        className="text-zinc-400 hover:text-zinc-200 transition-colors p-0.5"
+                        title={isSelected ? "Deselect" : "Select wallet"}
                       >
                         {isSelected ? (
-                          <CheckSquare className="w-4 h-4 text-purple-400" />
+                          <CheckSquare className="w-4 h-4 text-zinc-200" />
                         ) : (
-                          <Square className="w-4 h-4 text-slate-600 hover:text-slate-400" />
+                          <Square className="w-4 h-4 text-zinc-600 hover:text-zinc-400" />
                         )}
                       </button>
                     </td>
@@ -653,8 +662,8 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                             type="text"
                             value={editLabel}
                             onChange={(e) => setEditLabel(e.target.value)}
-                            className="bg-slate-800 border border-purple-500/50 rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-400 w-36 font-sans"
-                            placeholder="Beri Nama / Tag"
+                            className="bg-zinc-900 border border-zinc-700 rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:border-zinc-500 w-36 font-sans"
+                            placeholder="Tag / Name"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === "Enter") handleSaveLabel(w.address);
@@ -663,13 +672,13 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                           />
                           <button
                             onClick={() => handleSaveLabel(w.address)}
-                            className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold hover:bg-emerald-500/30 text-[11px]"
+                            className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium hover:bg-emerald-500/30 text-[11px]"
                           >
                             Save
                           </button>
                           <button
                             onClick={() => setEditingAddress(null)}
-                            className="text-slate-500 hover:text-slate-300 text-[11px]"
+                            className="text-zinc-500 hover:text-zinc-300 text-[11px]"
                           >
                             ✕
                           </button>
@@ -682,10 +691,9 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                                 setEditingAddress(w.address);
                                 setEditLabel(w.label || "");
                               }}
-                              className="font-bold text-xs px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 inline-flex items-center gap-1 cursor-pointer hover:border-purple-400 transition-colors"
-                              title="Klik untuk mengubah nama wallet"
+                              className="font-medium text-xs px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700/60 inline-flex items-center gap-1 cursor-pointer hover:border-zinc-500 transition-colors"
+                              title="Edit label"
                             >
-                              <Tag className="w-2.5 h-2.5 text-purple-400" />
                               {w.label}
                             </span>
                           ) : (
@@ -694,11 +702,11 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                                 setEditingAddress(w.address);
                                 setEditLabel("");
                               }}
-                              className="text-slate-400 hover:text-cyan-300 cursor-pointer italic text-[11px] px-1.5 py-0.5 rounded border border-dashed border-slate-700 hover:border-cyan-500/50 inline-flex items-center gap-1 transition-colors bg-slate-900/60"
-                              title="Klik untuk memberi nama wallet ini"
+                              className="text-zinc-500 hover:text-zinc-300 italic text-[11px] px-1.5 py-0.5 rounded border border-dashed border-zinc-700/60 hover:border-zinc-600 inline-flex items-center gap-1 transition-colors"
+                              title="Add label"
                             >
-                              <Edit2 className="w-2.5 h-2.5 text-cyan-400" />
-                              <span>+ Beri Nama</span>
+                              <Edit2 className="w-2.5 h-2.5 text-zinc-500" />
+                              <span>+ Add Label</span>
                             </button>
                           )}
                           <button
@@ -706,19 +714,19 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                               setEditingAddress(w.address);
                               setEditLabel(w.label || "");
                             }}
-                            className="text-slate-500 hover:text-cyan-400 p-0.5 transition-colors"
-                            title="Edit nama wallet"
+                            className="text-zinc-500 hover:text-zinc-300 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Edit label"
                           >
                             <Edit2 className="w-3 h-3" />
                           </button>
                         </div>
                       )}
 
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400 pt-0.5">
+                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 pt-0.5 font-mono">
                         <span>{shortenAddress(w.address)}</span>
                         <button
                           onClick={() => handleCopy(w.address)}
-                          className="hover:text-slate-200"
+                          className="hover:text-zinc-200 transition-colors"
                           title="Copy address"
                         >
                           {copiedAddress === w.address ? (
@@ -731,7 +739,7 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                           href={`https://solscan.io/account/${w.address}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="hover:text-cyan-400"
+                          className="hover:text-zinc-200 transition-colors"
                           title="View on Solscan"
                         >
                           <ExternalLink className="w-3 h-3" />
@@ -739,7 +747,7 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                       </div>
                     </td>
 
-                    {/* Klasifikasi & Tipe Posisi */}
+                    {/* Profile & Position */}
                     <td className="py-3 px-4">
                       <div className="flex flex-col gap-1 items-start">
                         <div className="flex flex-wrap items-center gap-1">
@@ -768,11 +776,11 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                         </div>
                         {/* Avg Position Size */}
                         {w.avg_position_usd ? (
-                          <span className="text-[10px] text-cyan-400 font-mono font-medium">
+                          <span className="text-[11px] text-zinc-400 font-mono">
                             Avg Entry: ${w.avg_position_usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-500 font-mono">
+                          <span className="text-[11px] text-zinc-600 font-mono">
                             Avg Entry: -
                           </span>
                         )}
@@ -780,42 +788,42 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                     </td>
 
                     {/* Realized PnL */}
-                    <td className={`py-3 px-4 text-right font-bold ${isProfit ? "text-emerald-400" : "text-rose-400"}`}>
+                    <td className={`py-3 px-4 text-right font-mono font-semibold tabular-nums ${isProfit ? "text-emerald-400" : "text-rose-400"}`}>
                       {isProfit ? "+" : ""}
                       {w.realized_pnl.toFixed(2)} SOL
                     </td>
 
                     {/* Win Rate */}
-                    <td className="py-3 px-4 text-right text-slate-200 font-medium">
+                    <td className="py-3 px-4 text-right font-mono tabular-nums text-zinc-200">
                       {w.win_rate ? `${w.win_rate.toFixed(1)}%` : "0.0%"}
-                      <span className="block text-[10px] text-slate-500">
+                      <span className="block text-[10px] text-zinc-500 font-sans">
                         {w.winning_trades}W / {w.losing_trades}L
                       </span>
                     </td>
 
                     {/* Trade Count */}
-                    <td className="py-3 px-4 text-center text-slate-300 font-medium">
+                    <td className="py-3 px-4 text-center font-mono tabular-nums text-zinc-300">
                       {w.trade_count}
                     </td>
 
                     {/* Last Active */}
                     <td className="py-3 px-4 text-right">
                       <div className="flex flex-col items-end gap-0.5">
-                        <span className="text-slate-300 font-medium">
+                        <span className="text-zinc-300 font-mono text-[11px]">
                           {w.last_seen_at ? new Date(w.last_seen_at).toLocaleDateString() : "-"}
                         </span>
                         {w.is_dormant ? (
                           <span
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                            title="Tidak ada transaksi dalam 30 hari terakhir"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            title="No activity in >30 days"
                           >
                             <AlertTriangle className="w-2.5 h-2.5" />
-                            Dormant ({w.days_inactive ? `${w.days_inactive}h` : ">30h"})
+                            Inactive ({w.days_inactive ? `${w.days_inactive}d` : ">30d"})
                           </span>
                         ) : (
                           w.days_inactive !== undefined && w.days_inactive !== null && (
-                            <span className="text-[10px] text-slate-500">
-                              {w.days_inactive === 0 ? "Hari ini" : `${w.days_inactive}h lalu`}
+                            <span className="text-[10px] text-zinc-500">
+                              {w.days_inactive === 0 ? "Today" : `${w.days_inactive}d ago`}
                             </span>
                           )
                         )}
@@ -825,12 +833,12 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
                     {/* Sync Status */}
                     <td className="py-3 px-4 text-center">
                       <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                        className={`inline-block px-2 py-0.5 rounded text-[10px] uppercase font-medium ${
                           w.sync_status === "COMPLETED"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                             : w.sync_status === "SYNCING" || w.sync_status === "PROCESSING"
-                            ? "bg-purple-500/10 text-purple-400 border border-purple-500/30 animate-pulse"
-                            : "bg-slate-800 text-slate-400 border border-slate-700"
+                            ? "bg-zinc-800 text-zinc-300 border border-zinc-700 animate-pulse"
+                            : "bg-zinc-900 text-zinc-400 border border-zinc-800"
                         }`}
                       >
                         {w.sync_status}
@@ -839,28 +847,27 @@ export function WatchlistTable({ refreshTrigger, onRefresh }: Props) {
 
                     {/* Actions */}
                     <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => handleTriggerSync(w.address)}
-                          className="p-1 rounded text-slate-500 hover:text-cyan-400 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTriggerSync(w.address);
+                          }}
+                          className="p-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors"
                           title="Sync transactions"
                         >
                           <RotateCw className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleUntrack(w.address)}
-                          className="p-1 rounded text-slate-500 hover:text-rose-400 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUntrack(w.address);
+                          }}
+                          className="p-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-zinc-700 transition-colors"
                           title="Untrack wallet"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                        <Link
-                          href={`/wallet/${w.address}`}
-                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-cyan-400 font-semibold inline-flex items-center gap-1 transition-all"
-                        >
-                          <span>Profile</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </Link>
                       </div>
                     </td>
                   </tr>

@@ -105,9 +105,17 @@ class HoldingBucket(BaseModel):
     count: int
 
 
+class PnLPoint(BaseModel):
+    timestamp: datetime
+    pnl: float
+    cumulative_pnl: float
+    token_symbol: Optional[str] = None
+
+
 class PerformanceResponse(BaseModel):
     holding_time_distribution: List[HoldingBucket]
     pnl_summary: Dict[str, Any]
+    pnl_timeline: List[PnLPoint] = []
 
 
 class TokenPerformanceItem(BaseModel):
