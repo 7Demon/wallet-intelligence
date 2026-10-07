@@ -1,4 +1,5 @@
 import os
+import secrets
 from typing import Any, Dict, List, Optional, Union
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
@@ -14,6 +15,21 @@ router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
 HELIUS_WEBHOOK_SECRET = os.getenv("HELIUS_WEBHOOK_SECRET")
+
+
+def verify_webhook_admin(authorization: Optional[str] = Header(None)) -> None:
+    """Validate administrative secret for webhook management endpoints."""
+    admin_secret = os.getenv("APP_ADMIN_SECRET") or os.getenv("HELIUS_WEBHOOK_SECRET")
+    if not admin_secret:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Admin secret or HELIUS_WEBHOOK_SECRET is not configured on server.",
+        )
+    if not authorization or not secrets.compare_digest(authorization, admin_secret):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing administrative authorization secret.",
+        )
 
 
 class WebhookSetupRequest(BaseModel):
@@ -33,14 +49,18 @@ async def receive_helius_webhook(
     Automatically detects if any tracked wallet is involved and schedules an
     immediate incremental delta-sync in the background.
     """
-    # 1. Verify Secret Header if HELIUS_WEBHOOK_SECRET is configured
+    # 1. Verify Secret Header (Fail-closed with constant-time comparison)
     expected_secret = os.getenv("HELIUS_WEBHOOK_SECRET")
-    if expected_secret:
-        if not authorization or authorization != expected_secret:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or missing webhook authorization secret.",
-            )
+    if not expected_secret:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="HELIUS_WEBHOOK_SECRET is not configured on server.",
+        )
+    if not authorization or not secrets.compare_digest(authorization, expected_secret):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing webhook authorization secret.",
+        )
 
     try:
         body = await request.json()
@@ -143,11 +163,20 @@ async def get_helius_webhook_status(db: AsyncSession = Depends(get_db)):
 async def setup_helius_webhook(
     req: WebhookSetupRequest,
     db: AsyncSession = Depends(get_db),
+    _: None = Depends(verify_webhook_admin),
 ):
     """
     Helper endpoint to automatically register or update the webhook with Helius API
     containing all currently tracked wallets from the database.
     """
+    # Validate webhook_url
+    clean_url = req.webhook_url.strip()
+    if not (clean_url.startswith("https://") or clean_url.startswith("http://localhost") or clean_url.startswith("http://127.0.0.1")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook URL must be a valid HTTPS URL (or localhost/127.0.0.1 for development).",
+        )
+
     api_key = os.getenv("HELIUS_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -198,7 +227,7 @@ async def setup_helius_webhook(
 
 
 @router.get("/helius/list")
-async def list_helius_webhooks():
+async def list_helius_webhooks(_: None = Depends(verify_webhook_admin)):
     """Retrieve all webhooks currently registered on Helius for this API key."""
     api_key = os.getenv("HELIUS_API_KEY")
     if not api_key:

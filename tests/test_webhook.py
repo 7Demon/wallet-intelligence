@@ -29,12 +29,17 @@ async def test_webhook_receive_unmatched():
             "tokenTransfers": [],
         }
     ]
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.post("/api/webhooks/helius", json=sample_payload)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert len(data["matched_wallets"]) == 0
+    with patch.dict("os.environ", {"HELIUS_WEBHOOK_SECRET": "test_secret_123"}):
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            response = await ac.post(
+                "/api/webhooks/helius",
+                json=sample_payload,
+                headers={"Authorization": "test_secret_123"},
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "ok"
+            assert len(data["matched_wallets"]) == 0
     print("[OK] Webhook receive unmatched transaction passed.")
 
 
@@ -59,10 +64,15 @@ async def test_webhook_receive_matched():
         }
     ]
 
-    with patch("apps.api.routers.webhook.sync_wallet_history", new_callable=AsyncMock) as mock_sync:
+    with patch.dict("os.environ", {"HELIUS_WEBHOOK_SECRET": "test_secret_123"}), \
+         patch("apps.api.routers.webhook.sync_wallet_history", new_callable=AsyncMock) as mock_sync:
         mock_sync.return_value = {"status": "COMPLETED"}
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
-            response = await ac.post("/api/webhooks/helius", json=sample_payload)
+            response = await ac.post(
+                "/api/webhooks/helius",
+                json=sample_payload,
+                headers={"Authorization": "test_secret_123"},
+            )
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "ok"
@@ -74,6 +84,15 @@ async def test_webhook_receive_matched():
 @pytest.mark.asyncio
 async def test_webhook_secret_auth():
     transport = httpx.ASGITransport(app=app)
+
+    # 1. When secret is NOT configured -> 500 fail-closed
+    with patch.dict("os.environ", {"HELIUS_WEBHOOK_SECRET": ""}, clear=False):
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp500 = await ac.post("/api/webhooks/helius", json=[])
+            assert resp500.status_code == 500
+            assert "not configured" in resp500.json()["detail"]
+
+    # 2. When secret is configured
     with patch.dict("os.environ", {"HELIUS_WEBHOOK_SECRET": "my_secret_token_123"}):
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
             # Without auth header -> 401
@@ -96,3 +115,30 @@ async def test_webhook_secret_auth():
             )
             assert resp200.status_code == 200
     print("[OK] Webhook secret authentication validation passed.")
+
+
+@pytest.mark.asyncio
+async def test_webhook_admin_endpoints_auth():
+    transport = httpx.ASGITransport(app=app)
+    with patch.dict("os.environ", {"HELIUS_WEBHOOK_SECRET": "admin_secret_999"}):
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            # Setup endpoint without auth -> 401
+            resp_setup_noauth = await ac.post(
+                "/api/webhooks/helius/setup",
+                json={"webhook_url": "https://example.com/webhook"},
+            )
+            assert resp_setup_noauth.status_code == 401
+
+            # List endpoint without auth -> 401
+            resp_list_noauth = await ac.get("/api/webhooks/helius/list")
+            assert resp_list_noauth.status_code == 401
+
+            # Setup endpoint with invalid URL scheme -> 400
+            resp_invalid_url = await ac.post(
+                "/api/webhooks/helius/setup",
+                json={"webhook_url": "ftp://malicious.com"},
+                headers={"Authorization": "admin_secret_999"},
+            )
+            assert resp_invalid_url.status_code == 400
+            assert "HTTPS URL" in resp_invalid_url.json()["detail"]
+    print("[OK] Webhook admin endpoints auth and URL validation passed.")

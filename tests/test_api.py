@@ -39,9 +39,37 @@ def test_wallet_not_found():
     print("[OK] GET /api/wallet/{address} returns 404 for unseen wallet.")
 
 
+def test_bulk_import_max_length_limit():
+    # 101 addresses should be rejected by Pydantic with 422 Unprocessable Entity
+    oversized_list = [f"Addr{i}" for i in range(101)]
+    response = client.post("/api/wallets/bulk-import", json={"addresses": oversized_list})
+    assert response.status_code == 422
+    print("[OK] Bulk import > 100 addresses rejected with 422.")
+
+
+def test_cors_origin_headers():
+    # Localhost origin gets CORS header
+    res_local = client.options(
+        "/healthz",
+        headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "GET"},
+    )
+    assert res_local.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    # Foreign IP origin (123.123.1.1) does NOT get CORS header
+    res_foreign = client.options(
+        "/healthz",
+        headers={"Origin": "http://123.123.1.1", "Access-Control-Request-Method": "GET"},
+    )
+    assert "access-control-allow-origin" not in res_foreign.headers
+    print("[OK] Foreign IP origin properly rejected by CORS.")
+
+
 if __name__ == "__main__":
     test_healthz()
     test_invalid_address_rejection()
     test_valid_address_sync_trigger()
     test_wallet_not_found()
+    test_bulk_import_max_length_limit()
+    test_cors_origin_headers()
     print("\nALL API INTEGRATION TESTS PASSED SUCCESSFULLY!")
+

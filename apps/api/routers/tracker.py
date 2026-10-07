@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/wallets", tags=["Wallet Tracker"])
 
 # --- Schemas ---
 class BulkImportRequest(BaseModel):
-    addresses: List[str]
+    addresses: List[str] = Field(..., max_length=100, description="Maximum 100 addresses per batch import")
     default_label: Optional[str] = None
     auto_sync: bool = True
 
